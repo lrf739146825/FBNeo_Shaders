@@ -38,23 +38,25 @@ FinalBurn Neo
 ```
 
 Config Group
+
 ```html
    Filter                                |  SoftFX
    --------------------------------------+---------------
    Point                                 |  CRT Aperture
-   Point or Linear    (not Diff)         |  CRT Caligari
+   Point or Linear    (not different)    |  CRT Caligari
    Point                                 |  CRT CGWG Fast
-   Point or Linear    (not Diff)         |  CRT Easy Mode
+   Point or Linear    (not different)    |  CRT Easy Mode
    Linear                                |  CRT Standard
    Linear                                |  CRT Bicubic
    Point or Linear                       |  CRT Retro Scanlines   ( It is only applicable to even-fold zooming)
-   Point or Linear( Linear for SFC)      |  CRT CGA
+   Point or Linear (Linear just for SFC) |  CRT CGA
 ```
 
 Recommended settings
+
 ```html
-   Point filtering + CRT Aperture
-   Point filtering + CRT CGWG Fast
-   Point or Linear + CRT Easy Mode
-   Point or Linear + CRT CGA
+   Point filtering                     + CRT Aperture
+   Point filtering                     + CRT CGWG Fast
+   Point filtering or Linear filtering + CRT Easy Mode
+   Point filtering or Linear filtering + CRT CGA
 ```
