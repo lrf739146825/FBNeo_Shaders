@@ -1,7 +1,7 @@
 # FBNeo_Shaders
 Shader file after adjusting the effect.
 
-
+<hr>
 
 ## Video Config Suggest ##
 
@@ -20,9 +20,11 @@ FinalBurn Neo
         |-> Set scanlines intensity (220)
 </code></pre>
 
+<hr>
+
 ### "DirectX9 Alt" Mode ###
 
-Base Config
+1. Base Config
 
 ```html
 FinalBurn Neo
@@ -37,7 +39,7 @@ FinalBurn Neo
         |-> SoftFX algorithm
 ```
 
-Config Group
+2. Config Group
 
 ```html
    Filter                                |  SoftFX
@@ -52,7 +54,7 @@ Config Group
    Point or Linear (Linear just for SFC) |  CRT CGA
 ```
 
-Recommended settings
+3. Recommended settings
 
 ```html
    Point filtering                     + CRT Aperture
