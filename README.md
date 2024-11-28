@@ -3,11 +3,11 @@ Shader file after adjusting the effect.
 
 
 
-Video Config Suggest
+## Video Config Suggest ##
 
-##############################################
+###########################################
 
-"Experimental" Mode
+### "Experimental" Mode ###
 
 FinalBurn Neo
     |->Video
@@ -20,9 +20,8 @@ FinalBurn Neo
         |-> Enable Scanlines
         |-> Set scanlines intensity (220)
 
-##############################################
 
-"DirectX9 Alt" Mode
+### "DirectX9 Alt" Mode ###
 
 Base Config
 
