@@ -23,6 +23,11 @@
 
 #define CRTCGWG_GAMMA 2.7
 
+#define BRIGHT_BOOST 1.2
+#define RED_GAIN    1.0
+#define GREEN_GAIN  1.13
+#define BLUE_GAIN   1.12
+
 #define TEX2D(c) tex2D(tex0, (c)).rgb
 #define PI 3.141592653589
 
@@ -89,7 +94,10 @@ float4 main_fragment(default_v2f input) : COLOR
     float3 multi = col * weights + col2 * weights2;
     float3 mcol = lerp(float3(1.0, 0.7, 1.0), float3(0.7, 1.0, 0.7), floor(fmod(mod_factor, 2.0)));
 
-    return float4(pow(mcol * multi, float3(0.454545, 0.454545, 0.454545)), 1.0);
+    col = pow(mcol * multi, float3(0.454545, 0.454545, 0.454545));
+
+    float3 finalColor = float3(col.r * RED_GAIN * BRIGHT_BOOST, col.g * GREEN_GAIN * BRIGHT_BOOST, col.b * BLUE_GAIN * BRIGHT_BOOST);
+    return float4(finalColor, 1.0);
 }
 
 technique t

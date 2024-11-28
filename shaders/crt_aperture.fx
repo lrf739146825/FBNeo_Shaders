@@ -21,6 +21,10 @@
 #define GAMMA_OUTPUT 2.4
 #define BRIGHTNESS 1.5
 
+#define RED_GAIN    1.0
+#define GREEN_GAIN  1.16
+#define BLUE_GAIN   1.16
+
 // ...
 #define TEX2D(c) pow(tex2D(tex, c).rgb, GAMMA_INPUT)
 #define PI 3.141592653589
@@ -116,7 +120,8 @@ float4 main_fragment(default_v2f input) : COLOR
     col += col_glow * GLOW_DIFFUSION;
     col = pow(col * BRIGHTNESS, 1.0 / GAMMA_OUTPUT);
 
-    return float4(col, 1.0);
+    float3 finalColor = float3(col.r * RED_GAIN , col.g * GREEN_GAIN , col.b * BLUE_GAIN );
+    return float4(finalColor, 1.0);
 }
 
 technique t
