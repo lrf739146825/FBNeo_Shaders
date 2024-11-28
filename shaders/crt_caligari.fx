@@ -23,9 +23,13 @@
 
 #define SPOT_WIDTH  0.9
 #define SPOT_HEIGHT 0.65
-#define COLOR_BOOST 1.45
-#define InputGamma 2.4
+#define COLOR_BOOST 1.60
+#define InputGamma 2.7
 #define OutputGamma 2.2
+
+#define RED_GAIN    1.06
+#define GREEN_GAIN  1.0
+#define BLUE_GAIN   1.0
 
 #define GAMMA_IN(color)     pow(color, float4(InputGamma, InputGamma, InputGamma, InputGamma))
 #define GAMMA_OUT(color) pow(color, float4(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
@@ -115,7 +119,7 @@ float4 main_fragment(out_vertex input) : COLOR
 
     color = color + colorNB * float4( v_weight_10 * h_weight_01, v_weight_10 * h_weight_01, v_weight_10 * h_weight_01, v_weight_10 * h_weight_01 );
 
-    color *= float4( COLOR_BOOST, COLOR_BOOST, COLOR_BOOST, COLOR_BOOST );
+    color *= float4( RED_GAIN * COLOR_BOOST, GREEN_GAIN * COLOR_BOOST, BLUE_GAIN * COLOR_BOOST, COLOR_BOOST );
 
     return clamp( GAMMA_OUT(color), 0.0, 1.0 );
 }
