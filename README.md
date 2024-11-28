@@ -24,7 +24,7 @@ FinalBurn Neo
 
 Base Config
 
-<pre><code>
+```html
 FinalBurn Neo
     |->Video
       |->Select Blitter
@@ -35,10 +35,10 @@ FinalBurn Neo
         |-> Point filtering
         |-> Linear filtering
         |-> SoftFX algorithm
-</code></pre>
+```
 
 Config Group
-<pre><code>
+```html
    Filter                                |  SoftFX
    --------------------------------------+---------------
    Point                                 |  CRT Aperture
@@ -49,13 +49,12 @@ Config Group
    Linear                                |  CRT Bicubic
    Point or Linear                       |  CRT Retro Scanlines   ( It is only applicable to even-fold zooming)
    Point or Linear( Linear for SFC)      |  CRT CGA
-</code></pre>
-
+```
 
 Recommended settings
-<pre><code>
+```html
    Point filtering + CRT Aperture
    Point filtering + CRT CGWG Fast
    Point or Linear + CRT Easy Mode
    Point or Linear + CRT CGA
-</code></pre>
+```
