@@ -24,6 +24,10 @@ FinalBurn Neo
 
 ### "DirectX9 Alt" Mode ###
 
+```html
+Put shader files into: FBNEO root folder\support\shaders\
+```
+
 1. Base Config
 
 ```html
