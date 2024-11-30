@@ -24,8 +24,8 @@ Notes:  This shader does scaling with a weighted linear filter for adjustable
 
 #define SPOT_WIDTH          0.9
 #define SPOT_HEIGHT         0.65
-#define COLOR_BOOST         1.45
-#define InputGamma          2.4
+#define COLOR_BOOST         1.5
+#define InputGamma          2.2
 #define OutputGamma         2.2
 
 #define BLURSCALEX          0.30
