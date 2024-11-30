@@ -24,6 +24,9 @@
 #define VIGNETTE_POW    0.40 // vignette power
 #define MASK_VEC        float3(1.1,1.0,1.2)
 
+//(1 or 0)
+#define ENABLE_CURVED_SCREEN 1
+
 #define BRIGHTNESS_BOOST 0.24
 #define SATURATION_BOOST 0.05
 
@@ -136,8 +139,14 @@ float Vignette(float2 pos)
 
 float4 main_fragment(default_v2f input) : COLOR
 {
+
+#if ENABLE_CURVED_SCREEN
     float2 pos = Warp(input.texcoord);
-    float3 col = Tri(pos) * Vignette(pos) * MASK_VEC;
+	float3 col = Tri(pos) * Vignette(pos) * MASK_VEC;
+#else
+    float2 pos = input.texcoord;
+	float3 col = Tri(pos) * MASK_VEC;
+#endif
 
     col = col * (1.0 + BRIGHTNESS_BOOST);
 

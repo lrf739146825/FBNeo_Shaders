@@ -67,7 +67,7 @@ FinalBurn Neo
    Linear                                |  CRT Standard
    Linear                                |  CRT Bicubic
    Point or Linear                       |  CRT Retro Scanlines   ( It is only applicable to even-fold zooming)
-   Point or Linear (Linear just for SFC) |  CRT CGA
+   Point or Linear (Linear just for SFC) |  CRT CGA  (crt_cga.fx -> ENABLE_CURVED_SCREEN -> 1 or 0 )
 ```
 
 3. Recommended settings
