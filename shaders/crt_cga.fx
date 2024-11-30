@@ -25,7 +25,7 @@
 #define MASK_VEC        float3(1.1,1.0,1.2)
 
 #define BRIGHTNESS_BOOST 0.24
-#define SATURATION_BOOST 0.12
+#define SATURATION_BOOST 0.05
 
 // uniforms
 sampler2D tex0;
