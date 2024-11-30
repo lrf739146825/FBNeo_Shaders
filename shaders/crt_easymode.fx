@@ -31,7 +31,7 @@
 
 #define BRIGHT_BOOST 1.25
 #define DILATION 1.0
-#define GAMMA_INPUT 2.7
+#define GAMMA_INPUT 2.4
 #define GAMMA_OUTPUT 2.2
 #define MASK_SIZE 1.0
 #define MASK_STAGGER 0.0
@@ -47,9 +47,9 @@
 #define SHARPNESS_H 0.5
 #define SHARPNESS_V 1.0
 
-#define RED_GAIN    1.0
-#define GREEN_GAIN  1.13
-#define BLUE_GAIN   1.12
+#define RED_GAIN    0.96
+#define GREEN_GAIN  1.12
+#define BLUE_GAIN   1.1
 
 #define FIX(c) max(abs(c), 1e-5)
 #define PI 3.141592653589

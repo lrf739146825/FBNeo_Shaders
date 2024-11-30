@@ -25,6 +25,10 @@
 #define GREEN_GAIN  1.16
 #define BLUE_GAIN   1.16
 
+#define RED_GLOWCOLOR 1.0
+#define GREEN_GLOWCOLOR 1.0
+#define BLUE_GLOWCOLOR 1.0
+
 // ...
 #define TEX2D(c) pow(tex2D(tex, c).rgb, GAMMA_INPUT)
 #define PI 3.141592653589
@@ -106,6 +110,10 @@ float3 filter_lanczos(sampler2D tex, float2 co, float2 tex_size, float sharp)
     return mul(coef, float4x4(col1, col1, col2, col2)).rgb;
 }
 
+float3 adjustGlowColor(float3 glowColor) {
+    return float3(glowColor.r * RED_GLOWCOLOR, glowColor.g * GREEN_GLOWCOLOR, glowColor.b * BLUE_GLOWCOLOR);  
+}
+
 float4 main_fragment(default_v2f input) : COLOR
 {
     float3 col_glow = filter_gaussian(tex0, input.texcoord, texture_size);
@@ -114,7 +122,7 @@ float4 main_fragment(default_v2f input) : COLOR
     float3 col = sqrt(col_sharp * col_soft);
 
     col *= get_scanline_weight(frac(input.texcoord.y * texture_size.y), col_soft);
-    col_glow = saturate(col_glow - col);
+    col_glow = adjustGlowColor(saturate(col_glow - col));
     col += col_glow * col_glow * GLOW_HALATION;
     col = lerp(col, col * get_mask_weight(input.texcoord.x, texture_size, video_size, output_size) * MASK_COLORS, MASK_STRENGTH);
     col += col_glow * GLOW_DIFFUSION;
