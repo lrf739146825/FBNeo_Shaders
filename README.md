@@ -5,8 +5,9 @@ Shader file after adjusting the effect.
 
 ## Video Config Suggest ##
 
-<pre><code>
 Base Cofig
+
+<pre><code>
 
 FinalBurn Neo
     |->Video
