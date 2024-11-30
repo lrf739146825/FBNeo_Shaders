@@ -47,9 +47,9 @@
 #define SHARPNESS_H 0.5
 #define SHARPNESS_V 1.0
 
-#define RED_GAIN    0.96
-#define GREEN_GAIN  1.12
-#define BLUE_GAIN   1.1
+#define RED_GAIN    0.95
+#define GREEN_GAIN  1.08
+#define BLUE_GAIN   1.12
 
 #define FIX(c) max(abs(c), 1e-5)
 #define PI 3.141592653589

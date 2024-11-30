@@ -24,6 +24,9 @@
 #define VIGNETTE_POW    0.40 // vignette power
 #define MASK_VEC        float3(1.1,1.0,1.2)
 
+#define BRIGHTNESS_BOOST 0.24
+#define SATURATION_BOOST 0.125
+
 // uniforms
 sampler2D tex0;
 float2 texture_size;
@@ -135,6 +138,14 @@ float4 main_fragment(default_v2f input) : COLOR
 {
     float2 pos = Warp(input.texcoord);
     float3 col = Tri(pos) * Vignette(pos) * MASK_VEC;
+
+    col = col * (1.0 + BRIGHTNESS_BOOST);
+
+    float3 intensity = dot(col, float3(0.299, 0.587, 0.114));
+    col = lerp(intensity.xxx, col, 1.0 + SATURATION_BOOST);
+
+    col = saturate(col);
+
     return float4(ToSrgb(col), 1.0);
 }
 

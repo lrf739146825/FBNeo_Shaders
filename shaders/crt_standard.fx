@@ -35,6 +35,10 @@ Notes:  This shader does scaling with a weighted linear filter for adjustable
 #define MASK_DARK           0.85
 #define MASK_FADE           0.8
 
+#define RED_GAIN    1.05
+#define GREEN_GAIN  0.95
+#define BLUE_GAIN   1.0
+
 #define GAMMA_IN(color)     pow(color, float4(InputGamma, InputGamma, InputGamma, InputGamma))
 #define GAMMA_OUT(color)    pow(color, float4(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
 #define TEX2D(coords)       GAMMA_IN(tex2D(tex0, coords).rgba)
@@ -83,7 +87,7 @@ float4 main_fragment(out_vertex input) : COLOR
 
     float maskFade = 0.3333 * MASK_FADE;
     color *= lerp(scanLineWeight * mask, scanLineWeightB, dot(color.rgb, float3(maskFade, maskFade, maskFade)));
-    color *= float4(COLOR_BOOST, COLOR_BOOST, COLOR_BOOST, COLOR_BOOST);
+    color *= float4( RED_GAIN * COLOR_BOOST, GREEN_GAIN * COLOR_BOOST, BLUE_GAIN * COLOR_BOOST, COLOR_BOOST );
 
     return clamp(GAMMA_OUT(color), 0.0, 1.0);
 }

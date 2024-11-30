@@ -23,11 +23,11 @@
 
 #define SPOT_WIDTH  0.9
 #define SPOT_HEIGHT 0.65
-#define COLOR_BOOST 1.60
-#define InputGamma 2.5
+#define COLOR_BOOST 1.30
+#define InputGamma 2.4
 #define OutputGamma 2.2
 
-#define RED_GAIN    1.06
+#define RED_GAIN    1.1
 #define GREEN_GAIN  1.0
 #define BLUE_GAIN   1.0
 
