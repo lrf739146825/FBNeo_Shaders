@@ -27,7 +27,7 @@
 
 #define RED_GLOWCOLOR 1.0
 #define GREEN_GLOWCOLOR 1.0
-#define BLUE_GLOWCOLOR 1.0
+#define BLUE_GLOWCOLOR 0.8
 
 // ...
 #define TEX2D(c) pow(tex2D(tex, c).rgb, GAMMA_INPUT)
