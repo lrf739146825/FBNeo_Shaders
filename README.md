@@ -5,6 +5,17 @@ Shader file after adjusting the effect.
 
 ## Video Config Suggest ##
 
+<pre><code>
+Base Cofig
+
+FinalBurn Neo
+    |->Video
+         |->Stretch
+              |->Correct aspect ratio
+</code></pre>
+
+<hr>
+
 ### "Experimental" Mode ###
 
 <pre><code>
