@@ -23,7 +23,7 @@
 
 #define RED_GAIN    1.0
 #define GREEN_GAIN  1.16
-#define BLUE_GAIN   1.16
+#define BLUE_GAIN   1.14
 
 #define RED_GLOWCOLOR 1.0
 #define GREEN_GLOWCOLOR 1.0
