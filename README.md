@@ -10,9 +10,9 @@ Base Cofig
 <pre><code>
 
 FinalBurn Neo
-    |->Video
-         |->Stretch
-              |->Correct aspect ratio
+    |-> Video
+         |-> Stretch
+              |-> Correct aspect ratio
 </code></pre>
 
 <hr>
@@ -21,8 +21,8 @@ FinalBurn Neo
 
 <pre><code>
 FinalBurn Neo
-    |->Video
-      |->Select Blitter
+    |-> Video
+      |-> Select Blitter
         |-> Experimental
       |-> Blitter optionns
         |-> Soft algorithm
@@ -44,12 +44,12 @@ Put shader files into: FBNEO root folder\support\shaders\
 
 ```html
 FinalBurn Neo
-    |->Video
-      |->Select Blitter
+    |-> Video
+      |-> Select Blitter
         |-> DirectX9 Alt
-      |->Blitter optionns
+      |-> Blitter optionns
         |-> Soft algorithm
-                |->Double pixels(3D hardware)
+                |-> Double pixels(3D hardware)
         |-> Point filtering
         |-> Linear filtering
         |-> SoftFX algorithm
