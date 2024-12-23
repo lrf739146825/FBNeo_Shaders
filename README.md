@@ -8,7 +8,6 @@ Shader file after adjusting the effect.
 Base Cofig
 
 <pre><code>
-
 FinalBurn Neo
     |-> Video
          |-> Stretch
