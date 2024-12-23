@@ -10,8 +10,8 @@ Base Cofig
 <pre><code>
 FinalBurn Neo
     |-> Video
-         |-> Stretch
-              |-> Correct aspect ratio
+      |-> Stretch
+        |-> Correct aspect ratio
 </code></pre>
 
 <hr>
@@ -25,7 +25,7 @@ FinalBurn Neo
         |-> Experimental
       |-> Blitter optionns
         |-> Soft algorithm
-                |-> Double pixels(3D hardware)
+          |-> Double pixels(3D hardware)
         |-> Enable Linear filtering
         |-> Enable Scanlines
         |-> Set scanlines intensity (220)
@@ -48,7 +48,7 @@ FinalBurn Neo
         |-> DirectX9 Alt
       |-> Blitter optionns
         |-> Soft algorithm
-                |-> Double pixels(3D hardware)
+          |-> Double pixels(3D hardware)
         |-> Point filtering
         |-> Linear filtering
         |-> SoftFX algorithm
