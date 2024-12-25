@@ -18,7 +18,7 @@
 #include "defaults.inc"
 
 #define HARD_SCAN       -8.0 // -8.0 = soft, -16.0 = medium
-#define HARD_PIX        -3.0 // -2.0 = soft, -4.0 = hard
+#define HARD_PIX        -4.0 // -2.0 = soft, -4.0 = hard
 #define WARP            10.0 // -16.0 = soft, -4.0 = strong
 #define VIGNETTE        80.0 // vignette spread
 #define VIGNETTE_POW    0.40 // vignette power
