@@ -164,8 +164,6 @@ float4 main_fragment(default_v2f input) : COLOR
 
     col = AdjustSaturation(col, 1.0 + SATURATION_BOOST);
 
-    col = saturate(col);
-
     return float4(ToSrgb(col), 1.0);
 }
 

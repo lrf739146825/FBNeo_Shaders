@@ -22,6 +22,7 @@
 #include "defaults.inc"
 
 #define CRTCGWG_GAMMA 2.2
+#define SATURATION_BOOST 0.2
 
 #define BRIGHT_BOOST 1.06
 #define RED_GAIN    1.0
@@ -36,6 +37,19 @@ sampler2D tex0;
 float2    texture_size;
 float2    video_size;
 float2    output_size;
+
+
+float3 AdjustSaturation(float3 color, float saturation)
+{
+    float intensity = dot(color, float3(0.299, 0.587, 0.114));
+
+    float3 desaturated = float3(intensity, intensity, intensity);
+    float3 saturated = lerp(desaturated, color, saturation);
+
+    saturated = saturate(saturated);
+
+    return saturated;
+}
 
 float4 main_fragment(default_v2f input) : COLOR
 {
@@ -97,6 +111,9 @@ float4 main_fragment(default_v2f input) : COLOR
     col = pow(mcol * multi, float3(0.454545, 0.454545, 0.454545));
 
     float3 finalColor = float3(col.r * RED_GAIN * BRIGHT_BOOST, col.g * GREEN_GAIN * BRIGHT_BOOST, col.b * BLUE_GAIN * BRIGHT_BOOST);
+
+	finalColor = AdjustSaturation(finalColor, 1.0 + SATURATION_BOOST);
+
     return float4(finalColor, 1.0);
 }
 

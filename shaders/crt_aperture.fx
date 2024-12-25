@@ -25,6 +25,8 @@
 #define GREEN_GAIN  1.16
 #define BLUE_GAIN   1.14
 
+#define SATURATION_BOOST  0.2
+
 #define RED_GLOWCOLOR 1.0
 #define GREEN_GLOWCOLOR 1.0
 #define BLUE_GLOWCOLOR 0.8
@@ -114,6 +116,19 @@ float3 adjustGlowColor(float3 glowColor) {
     return float3(glowColor.r * RED_GLOWCOLOR, glowColor.g * GREEN_GLOWCOLOR, glowColor.b * BLUE_GLOWCOLOR);  
 }
 
+
+float3 AdjustSaturation(float3 color, float saturation)
+{
+    float intensity = dot(color, float3(0.299, 0.587, 0.114));
+
+    float3 desaturated = float3(intensity, intensity, intensity);
+    float3 saturated = lerp(desaturated, color, saturation);
+
+    saturated = saturate(saturated);
+
+    return saturated;
+}
+
 float4 main_fragment(default_v2f input) : COLOR
 {
     float3 col_glow = filter_gaussian(tex0, input.texcoord, texture_size);
@@ -129,6 +144,9 @@ float4 main_fragment(default_v2f input) : COLOR
     col = pow(col * BRIGHTNESS, 1.0 / GAMMA_OUTPUT);
 
     float3 finalColor = float3(col.r * RED_GAIN , col.g * GREEN_GAIN , col.b * BLUE_GAIN );
+
+	finalColor = AdjustSaturation(finalColor, 1.0 + SATURATION_BOOST);
+
     return float4(finalColor, 1.0);
 }
 
