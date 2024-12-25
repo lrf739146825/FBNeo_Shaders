@@ -25,7 +25,7 @@
 #define GREEN_GAIN  1.18
 #define BLUE_GAIN   1.06
 
-#define SATURATION_BOOST  0.2
+#define SATURATION_BOOST  0.1
 
 #define RED_GLOWCOLOR 1.0
 #define GREEN_GLOWCOLOR 1.0
