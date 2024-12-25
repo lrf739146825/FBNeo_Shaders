@@ -25,11 +25,11 @@
 #define GREEN_GAIN  1.16
 #define BLUE_GAIN   1.14
 
-#define SATURATION_BOOST  0.2
+#define SATURATION_BOOST  0.1
 
 #define RED_GLOWCOLOR 1.0
 #define GREEN_GLOWCOLOR 1.0
-#define BLUE_GLOWCOLOR 0.8
+#define BLUE_GLOWCOLOR 1.0
 
 // ...
 #define TEX2D(c) pow(tex2D(tex, c).rgb, GAMMA_INPUT)
