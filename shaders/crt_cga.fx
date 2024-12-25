@@ -27,7 +27,9 @@
 //(1 or 0)
 #define ENABLE_CURVED_SCREEN 1
 
-#define BRIGHTNESS_BOOST 0.24
+#define GAMMA_VALUE 0.8
+
+#define BRIGHTNESS_BOOST 0.25
 #define SATURATION_BOOST 0.1
 
 // uniforms
@@ -149,6 +151,10 @@ float3 AdjustSaturation(float3 color, float saturation)
     return saturated;
 }
 
+float3 ToSrgbGamma(float3 c, float gamma) {
+    return float3(pow(c.r, 1.0 / gamma), pow(c.g, 1.0 / gamma), pow(c.b, 1.0 / gamma));
+}
+
 float4 main_fragment(default_v2f input) : COLOR
 {
 
@@ -162,9 +168,12 @@ float4 main_fragment(default_v2f input) : COLOR
 
     col = col * (1.0 + BRIGHTNESS_BOOST);
 
-    col = AdjustSaturation(col, 1.0 + SATURATION_BOOST);
+    float3 gammaCorrectedCol = ToSrgbGamma(col, GAMMA_VALUE);
+ 
+    float4 finalColor = float4(ToSrgb(gammaCorrectedCol * (1.0 + BRIGHTNESS_BOOST)), 1.0);
+    finalColor.rgb = AdjustSaturation(finalColor.rgb, 1.0 + SATURATION_BOOST);
+	return finalColor;
 
-    return float4(ToSrgb(col), 1.0);
 }
 
 technique t
