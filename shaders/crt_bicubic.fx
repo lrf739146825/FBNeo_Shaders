@@ -24,7 +24,7 @@ Notes:  This shader does scaling with a weighted linear filter for adjustable
 
 #define SPOT_WIDTH          0.9
 #define SPOT_HEIGHT         1.65
-#define COLOR_BOOST         1.2
+#define COLOR_BOOST         1.1
 #define InputGamma          2.4
 #define OutputGamma         2.2
 
@@ -35,9 +35,11 @@ Notes:  This shader does scaling with a weighted linear filter for adjustable
 #define MASK_DARK           0.85
 #define MASK_FADE           1.0
 
-#define RED_GAIN    1.1
+#define RED_GAIN    1.08
 #define GREEN_GAIN  1.06
 #define BLUE_GAIN   1.04
+
+#define SATURATION  1.2
 
 #define GAMMA_IN(color)     pow(color, float4(InputGamma, InputGamma, InputGamma, InputGamma))
 #define GAMMA_OUT(color)    pow(color, float4(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
@@ -88,6 +90,10 @@ float4 main_fragment(out_vertex input) : COLOR
     float maskFade = 0.3333 * MASK_FADE;
     color *= lerp(scanLineWeight * mask, scanLineWeightB, dot(color.rgb, float3(maskFade, maskFade, maskFade)));
     color *= float4( RED_GAIN * COLOR_BOOST, GREEN_GAIN * COLOR_BOOST, BLUE_GAIN * COLOR_BOOST, COLOR_BOOST );
+
+    float3 gray = dot(color.rgb, float3(0.299, 0.587, 0.114));
+    float3 saturatedColor = gray * SATURATION + (color.rgb - gray) * SATURATION;
+    color.rgb = saturatedColor;
 
     return clamp(GAMMA_OUT(color), 0.0, 1.0);
 }

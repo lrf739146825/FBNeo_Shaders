@@ -28,7 +28,7 @@
 #define ENABLE_CURVED_SCREEN 1
 
 #define BRIGHTNESS_BOOST 0.24
-#define SATURATION_BOOST 0.05
+#define SATURATION_BOOST 0.1
 
 // uniforms
 sampler2D tex0;
@@ -137,6 +137,18 @@ float Vignette(float2 pos)
     return pow(vig,VIGNETTE_POW);
 }
 
+float3 AdjustSaturation(float3 color, float saturation)
+{
+    float intensity = dot(color, float3(0.299, 0.587, 0.114));
+
+    float3 desaturated = float3(intensity, intensity, intensity);
+    float3 saturated = lerp(desaturated, color, saturation);
+
+    saturated = saturate(saturated);
+
+    return saturated;
+}
+
 float4 main_fragment(default_v2f input) : COLOR
 {
 
@@ -150,8 +162,7 @@ float4 main_fragment(default_v2f input) : COLOR
 
     col = col * (1.0 + BRIGHTNESS_BOOST);
 
-    float3 intensity = dot(col, float3(0.299, 0.587, 0.114));
-    col = lerp(intensity.xxx, col, 1.0 + SATURATION_BOOST);
+    col = AdjustSaturation(col, 1.0 + SATURATION_BOOST);
 
     col = saturate(col);
 
