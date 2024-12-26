@@ -21,13 +21,13 @@
 
 #include "defaults.inc"
 
-#define CRTCGWG_GAMMA 2.2
+#define CRTCGWG_GAMMA 2.4
 #define SATURATION_BOOST 0.2
 
-#define BRIGHT_BOOST 1.06
-#define RED_GAIN    1.0
-#define GREEN_GAIN  1.14
-#define BLUE_GAIN   1.1
+#define BRIGHT_BOOST 1.1
+#define RED_GAIN    0.94
+#define GREEN_GAIN  1.05
+#define BLUE_GAIN   1.02
 
 #define TEX2D(c) tex2D(tex0, (c)).rgb
 #define PI 3.141592653589
