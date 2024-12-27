@@ -11,6 +11,9 @@
 //SettingMinValue1=0.0
 //SettingStep1=0.05
 
+#define BRIGHT_BOOST 1.0
+#define SATURATION_BOOST 1.2
+
 #include "defaults.inc"
 
 uniform sampler2D sampler0;
@@ -37,6 +40,14 @@ float4 main_fragment(default_v2f input) : COLOR
     float b = tex2D( sampler0, input.texcoord ).z;
 
     float4 c = float4( r, g * 0.99, b, 1.0 ) * clamp( line_intensity, 0.85, 1.0 );
+
+    float saturation = clamp(user_settings.z + SATURATION_BOOST, 0.0, 10.0);
+    float gray = (r + g + b) / 3.0;
+    r = gray + saturation * (r - gray);
+    g = gray + saturation * (g - gray);
+    b = gray + saturation * (b - gray);
+
+    c = float4(r, g, b, c.a) * (user_settings.w + BRIGHT_BOOST);
 
     if (user_settings.x > 0.0) {
         float rollbar = sin( ( input.texcoord.y + video_time.y * user_settings.x ) * 4.0);
