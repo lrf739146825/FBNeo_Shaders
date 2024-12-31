@@ -1,9 +1,10 @@
 # FBNeo_Shaders
-Shader file after adjusting color and brightness.<br>
-It primarily addresses the issue of screen color bias that occurs the first time after setting the filter in 'DirectX9 Alt' mode.<br>
-In FBNEO, the 'DirectX9 Alt' mode filter necessitates manual resizing, minimizing, and maximizing of the window to resolve color issues, with possible slight texture changes noticeable. Following any window size adjustments, the color correction parameters initially set will result in incorrect colors on the screen.<br>
-To obtain the correct color, you need to reset the settings to the 'DirectX9 Alt' mode. (Video -> Select Blitter -> DirectX9 Alt)<br>
-At lower resolutions, 'CRT Aperture' and 'CRT CGWG Fast' filters exhibit noticeable uneven streaks, potentially due to a mismatch between the filter's algorithm and the image size. In contrast, the 'CRT CGA' filter does not have such a prominent issue.
+Shader file after adjusting color and brightness.</br>
+Under the 'DirectX9 Alt' mode filter, color issues that arise due to the screen resolution being inadequate for the specified scaling factor can often be temporarily alleviated by manually resizing, minimizing, and then maximizing the window.</br>
+This project primarily addresses the issue of screen color bias that occurs the first time after setting the filter in 'DirectX9 Alt' mode, specifically when the window size is set to 3x but the monitor's resolution is insufficient, causing a color deviation upon initially applying the filter.</br>
+This project focuses on addressing screen color bias issues that arise when the 'DirectX9 Alt' mode filter is first applied, particularly when the window is scaled to 3x on a 1366x768 resolution monitor due to insufficient pixels for accurate color representation. The objective is to resolve these issues through the adjustment of color parameters, ensuring that the screen immediately displays more accurate color results.</br>
+Reset to 'DirectX9 Alt' mode to correct for color bias after window resizing. (Video -> Select Blitter -> DirectX9 Alt)</br>
+When the display resolution is insufficient for achieving integer-scale magnification of the image, the 'CRT Aperture' and 'CRT CGWG Fast' filters will exhibit noticeable uneven scan lines, whereas the 'CRT CGA' filter does not exhibit this issue.
 <hr>
 
 ## Video Config Suggest ##
