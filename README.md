@@ -15,6 +15,7 @@ FinalBurn Neo
     |-> Video
       |-> Stretch
         |-> Correct aspect ratio
+      |->Window size (Triple or More)
 </code></pre>
 
 <hr>
