@@ -1,7 +1,7 @@
 # FBNeo_Shaders
 Shader file after adjusting color and brightness.<br>
 It primarily addresses the issue of screen color bias that occurs the first time after setting the filter in 'DirectX9 Alt' mode.<br>
-The 'DirectX9 Alt' mode filter necessitates manual resizing, minimizing, and maximizing of the window to address color issues. Additionally, slight alterations in the filter's texture may be noticed. The color correction parameters initially used will definitely lead to incorrect colors on the current screen display.<br>
+The 'DirectX9 Alt' mode filter necessitates manual resizing, minimizing, and maximizing of the window to address color issues. Additionally, slight alterations in the filter's texture may be noticed. The color correction parameters initially used will definitely lead to incorrect colors on the current screen display, particularly after any changes in window size.<br>
 To obtain the correct color, you need to reset the settings to the 'DirectX9 Alt' mode. (Video -> Select Blitter -> DirectX9 Alt)<br>
 At lower resolutions, 'CRT Aperture' and 'CRT CGWG Fast' filters exhibit noticeable uneven streaks, potentially due to a mismatch between the filter's algorithm and the image size. In contrast, the 'CRT CGA' filter does not have such a prominent issue.
 <hr>
