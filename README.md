@@ -1,5 +1,5 @@
 # FBNeo_Shaders
-Shader file after adjusting color and brightness.</br>
+Shader files after adjusting color and brightness. The original shader files is in 'base' branch.</br>
 Under the 'DirectX9 Alt' mode filter, color issues that arise due to the screen resolution being inadequate for the specified scaling factor can often be temporarily alleviated by manually resizing, minimizing, and then maximizing the window.</br>
 This project focuses on addressing screen color bias issues that arise when the 'DirectX9 Alt' mode filter is first applied, particularly when the window is scaled to 3x on a 1366x768 resolution monitor due to insufficient pixels for accurate color representation. The objective is to resolve these issues through the adjustment of color parameters, ensuring that the screen immediately displays more accurate color results.</br>
 Reset to 'DirectX9 Alt' mode to correct for color bias after window resizing. (Video -> Select Blitter -> DirectX9 Alt)</br>
