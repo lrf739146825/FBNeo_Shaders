@@ -23,8 +23,6 @@ FinalBurn Neo
       |-> Select Blitter
         |-> Experimental
       |-> Blitter optionns
-        |-> SoftFX algorithm
-          |-> Double pixels(3D hardware)
         |-> Enable Linear filtering
         |-> Enable Scanlines
         |-> Set scanlines intensity (220)
