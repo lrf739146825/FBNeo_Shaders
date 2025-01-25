@@ -23,7 +23,7 @@ FinalBurn Neo
       |-> Select Blitter
         |-> Experimental
       |-> Blitter optionns
-        |-> Soft algorithm
+        |-> SoftFX algorithm
           |-> Double pixels(3D hardware)
         |-> Enable Linear filtering
         |-> Enable Scanlines
