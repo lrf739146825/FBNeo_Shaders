@@ -46,17 +46,17 @@ FinalBurn Neo
       |-> Select Blitter
         |-> DirectX9 Alt
       |-> Blitter optionns
-        |-> Soft algorithm
+        |-> SoftFX algorithm
           |-> Double pixels(3D hardware)
         |-> Point filtering
         |-> Linear filtering
-        |-> SoftFX algorithm
+        |-> HardFX algorithm
 ```
 
 2. Config Group
 
 ```html
-   Filter                                |  SoftFX
+   Filter                                |  HardFX
    --------------------------------------+---------------
    Point                                 |  CRT Aperture
    Point or Linear    (not different)    |  CRT Caligari
