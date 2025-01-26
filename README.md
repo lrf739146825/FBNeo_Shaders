@@ -1,6 +1,7 @@
 # FBNeo_Shaders
 Shader files after adjusting color and brightness. The original shader files is in 'base' branch.</br>
 Reset to 'DirectX9 Alt' mode to correct for color bias after window resizing including manually resizing, minimizing, and then maximizing the window. (Video -> Select Blitter -> DirectX9 Alt)</br>
+Non-even multiples of display scaling can lead to uneven stripes forming on the scan lines of certain shaders.</br>
 <hr>
 
 ## Video Config Suggest ##
