@@ -1,6 +1,6 @@
 # FBNeo_Shaders
 Shader files after adjusting color and brightness. The original shader files is in 'base' branch.</br>
-Reset to 'DirectX9 Alt' mode to correct for color bias after window resizing. (Video -> Select Blitter -> DirectX9 Alt)</br>
+Reset to 'DirectX9 Alt' mode to correct for color bias after window resizing including manually resizing, minimizing, and then maximizing the window. (Video -> Select Blitter -> DirectX9 Alt)</br>
 <hr>
 
 ## Video Config Suggest ##
