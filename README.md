@@ -66,7 +66,7 @@ FinalBurn Neo
    Linear                                |  CRT Standard
    Linear                                |  CRT Bicubic
    Point or Linear                       |  CRT Retro Scanlines (SoftFX algorithm -> Select Shader's Settings)
-   Point or Linear (Linear just for SFC) |  CRT CGA  (crt_cga.fx -> ENABLE_CURVED_SCREEN -> 1 or 0 )
+   Point or Linear (Linear just for SNES)|  CRT CGA  (crt_cga.fx -> ENABLE_CURVED_SCREEN -> 1 or 0 )
 ```
 
 3. Recommended settings
