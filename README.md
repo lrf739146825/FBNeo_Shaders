@@ -12,7 +12,8 @@ Base Cofig
 FinalBurn Neo
     |-> Video
       |-> Stretch
-        |-> Correct aspect ratio
+        |-> Correct aspect ratio \[Recommended Used. The screen display size takes precedence, and the image may be stretched, resulting in inaccurate proportions.\]
+        |-> Integer Scaling (Max size) \[The screen display ratio takes precedence, and the screen resolution must meet the display requirement of being three times the game's original resolution to achieve the correct visual effect.\]
       |-> Window size (Auto)
 </code></pre>
 
