@@ -31,7 +31,7 @@
 
 #define BRIGHT_BOOST 1.2
 #define DILATION 1.0
-#define GAMMA_INPUT 2.4
+#define GAMMA_INPUT 2.5
 #define GAMMA_OUTPUT 2.2
 #define MASK_SIZE 1.0
 #define MASK_STAGGER 0.0
@@ -47,9 +47,11 @@
 #define SHARPNESS_H 0.5
 #define SHARPNESS_V 1.0
 
-#define RED_GAIN    0.95
-#define GREEN_GAIN  1.08
-#define BLUE_GAIN   1.12
+#define RED_GAIN    0.946
+#define GREEN_GAIN  1.05
+#define BLUE_GAIN   1.125
+
+#define SATURATION_BOOST  0.225
 
 #define FIX(c) max(abs(c), 1e-5)
 #define PI 3.141592653589
@@ -102,6 +104,17 @@ float3 filter_lanczos(float4 coeffs, float4x4 color_matrix)
     return col.rgb;
 }
 
+float3 AdjustSaturation(float3 color, float saturation)
+{
+    float intensity = dot(color, float3(0.299, 0.587, 0.114));
+
+    float3 desaturated = float3(intensity, intensity, intensity);
+    float3 saturated = lerp(desaturated, color, saturation);
+
+    saturated = saturate(saturated);
+
+    return saturated;
+}
 
 float4 main_fragment(default_v2f input) : COLOR
 {
@@ -162,6 +175,7 @@ float4 main_fragment(default_v2f input) : COLOR
     col = pow(col, float3(val, val, val));
 
     float3 finalColor = float3(col.r * RED_GAIN * BRIGHT_BOOST, col.g * GREEN_GAIN * BRIGHT_BOOST, col.b * BLUE_GAIN * BRIGHT_BOOST);
+    finalColor = AdjustSaturation(finalColor, 1.0 + SATURATION_BOOST);
     return float4(finalColor, 1.0);
 }
 
