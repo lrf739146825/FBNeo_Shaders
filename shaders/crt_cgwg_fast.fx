@@ -22,10 +22,10 @@
 #include "defaults.inc"
 
 #define CRTCGWG_GAMMA 2.4
-#define SATURATION_BOOST 0.2
+#define SATURATION_BOOST 0.215
 
-#define BRIGHT_BOOST 1.1
-#define RED_GAIN    0.94
+#define BRIGHT_BOOST 1.12
+#define RED_GAIN    0.96
 #define GREEN_GAIN  1.05
 #define BLUE_GAIN   1.02
 
