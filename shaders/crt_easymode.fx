@@ -31,7 +31,7 @@
 
 #define BRIGHT_BOOST 1.2
 #define DILATION 1.0
-#define GAMMA_INPUT 2.5
+#define GAMMA_INPUT 2.6
 #define GAMMA_OUTPUT 2.2
 #define MASK_SIZE 1.0
 #define MASK_STAGGER 0.0
