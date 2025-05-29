@@ -29,7 +29,7 @@
 
 #include "defaults.inc"
 
-#define BRIGHT_BOOST 1.24
+#define BRIGHT_BOOST 1.26
 #define DILATION 1.0
 #define GAMMA_INPUT 2.4
 #define GAMMA_OUTPUT 2.2
@@ -51,7 +51,7 @@
 #define GREEN_GAIN  1.04
 #define BLUE_GAIN   1.12
 
-#define SATURATION_BOOST  0.2
+#define SATURATION_BOOST  0.3
 
 #define FIX(c) max(abs(c), 1e-5)
 #define PI 3.141592653589
