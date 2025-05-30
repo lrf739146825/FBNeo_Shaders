@@ -30,7 +30,7 @@
 #define GAMMA_VALUE 0.8
 
 #define BRIGHTNESS_BOOST 0.25
-#define SATURATION_BOOST 0.1
+#define SATURATION_BOOST 0.3
 
 // uniforms
 sampler2D tex0;

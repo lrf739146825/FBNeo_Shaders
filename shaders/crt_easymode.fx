@@ -29,9 +29,9 @@
 
 #include "defaults.inc"
 
-#define BRIGHT_BOOST 1.25
+#define BRIGHT_BOOST 1.3
 #define DILATION 1.0
-#define GAMMA_INPUT 2.4
+#define GAMMA_INPUT 2.5
 #define GAMMA_OUTPUT 2.2
 #define MASK_SIZE 1.0
 #define MASK_STAGGER 0.0
@@ -47,11 +47,11 @@
 #define SHARPNESS_H 0.5
 #define SHARPNESS_V 1.0
 
-#define RED_GAIN    0.94
-#define GREEN_GAIN  1.04
+#define RED_GAIN    0.88
+#define GREEN_GAIN  0.985
 #define BLUE_GAIN   1.12
 
-#define SATURATION_BOOST  0.15
+#define SATURATION_BOOST  0.3
 
 #define FIX(c) max(abs(c), 1e-5)
 #define PI 3.141592653589
