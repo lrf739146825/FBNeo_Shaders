@@ -74,6 +74,7 @@ FinalBurn Neo
 
 ```html
    Point filtering                     + CRT Aperture
+   Point or Linear                     + CRT Caligari
    Point filtering                     + CRT CGWG Fast
    Point filtering or Linear filtering + CRT Easy Mode
    Point filtering or Linear filtering + CRT CGA
