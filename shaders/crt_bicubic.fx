@@ -24,7 +24,7 @@ Notes:  This shader does scaling with a weighted linear filter for adjustable
 
 #define SPOT_WIDTH          0.9
 #define SPOT_HEIGHT         1.65
-#define COLOR_BOOST         1.0
+#define COLOR_BOOST         1.05
 #define InputGamma          2.4
 #define OutputGamma         2.2
 
@@ -35,9 +35,9 @@ Notes:  This shader does scaling with a weighted linear filter for adjustable
 #define MASK_DARK           0.85
 #define MASK_FADE           1.0
 
-#define RED_GAIN    1.08
-#define GREEN_GAIN  1.08
-#define BLUE_GAIN   1.04
+#define RED_GAIN    0.99
+#define GREEN_GAIN  0.92
+#define BLUE_GAIN   1.40
 
 #define SATURATION  1.2
 
@@ -68,6 +68,18 @@ out_vertex main_vertex(default_a2v input)
     return OUT;
 }
 
+float3 AdjustSaturation(float3 color, float saturation)
+{
+    float intensity = dot(color, float3(0.299, 0.587, 0.114));
+
+    float3 desaturated = float3(intensity, intensity, intensity);
+    float3 saturated = lerp(desaturated, color, saturation);
+
+    saturated = saturate(saturated);
+
+    return saturated;
+}
+
 float4 main_fragment(out_vertex input) : COLOR
 {
     float2 coords = (input.texcoord * texture_size);
@@ -91,9 +103,7 @@ float4 main_fragment(out_vertex input) : COLOR
     color *= lerp(scanLineWeight * mask, scanLineWeightB, dot(color.rgb, float3(maskFade, maskFade, maskFade)));
     color *= float4( RED_GAIN * COLOR_BOOST, GREEN_GAIN * COLOR_BOOST, BLUE_GAIN * COLOR_BOOST, COLOR_BOOST );
 
-    float3 gray = dot(color.rgb, float3(0.299, 0.587, 0.114));
-    float3 saturatedColor = gray * SATURATION + (color.rgb - gray) * SATURATION;
-    color.rgb = saturatedColor;
+    color.rgb = AdjustSaturation(color.rgb, SATURATION);
 
     return clamp(GAMMA_OUT(color), 0.0, 1.0);
 }

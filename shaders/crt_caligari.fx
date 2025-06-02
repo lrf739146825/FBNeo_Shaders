@@ -31,7 +31,7 @@
 #define GREEN_GAIN  1.24
 #define BLUE_GAIN   1.96
 
-#define SATURATION  1.2
+#define SATURATION  1.1
 
 #define GAMMA_IN(color)     pow(color, float4(InputGamma, InputGamma, InputGamma, InputGamma))
 #define GAMMA_OUT(color) pow(color, float4(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
