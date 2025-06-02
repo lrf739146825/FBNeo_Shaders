@@ -24,10 +24,10 @@
 #define CRTCGWG_GAMMA 2.4
 #define SATURATION_BOOST 0.2
 
-#define BRIGHT_BOOST 1.05
-#define RED_GAIN    1.03
-#define GREEN_GAIN  1.118
-#define BLUE_GAIN   1.04
+#define BRIGHT_BOOST 1.07
+#define RED_GAIN    0.96
+#define GREEN_GAIN  1.1
+#define BLUE_GAIN   1.05
 
 #define TEX2D(c) tex2D(tex0, (c)).rgb
 #define PI 3.141592653589

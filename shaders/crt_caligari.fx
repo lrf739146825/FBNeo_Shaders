@@ -23,13 +23,15 @@
 
 #define SPOT_WIDTH  0.9
 #define SPOT_HEIGHT 0.65
-#define COLOR_BOOST 1.5
-#define InputGamma 2.4
+#define COLOR_BOOST 1.48
+#define InputGamma 2.6
 #define OutputGamma 2.2
 
-#define RED_GAIN    1.1
-#define GREEN_GAIN  1.0
-#define BLUE_GAIN   1.0
+#define RED_GAIN    1.35
+#define GREEN_GAIN  1.24
+#define BLUE_GAIN   1.96
+
+#define SATURATION  1.2
 
 #define GAMMA_IN(color)     pow(color, float4(InputGamma, InputGamma, InputGamma, InputGamma))
 #define GAMMA_OUT(color) pow(color, float4(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
@@ -59,6 +61,18 @@ out_vertex main_vertex(default_a2v input)
     OUT.one.y = float2(0.0, 1.0 / texture_size.y);
 
     return OUT;
+}
+
+float3 AdjustSaturation(float3 color, float saturation)
+{
+    float intensity = dot(color, float3(0.299, 0.587, 0.114));
+
+    float3 desaturated = float3(intensity, intensity, intensity);
+    float3 saturated = lerp(desaturated, color, saturation);
+
+    saturated = saturate(saturated);
+
+    return saturated;
 }
 
 float4 main_fragment(out_vertex input) : COLOR
@@ -120,6 +134,8 @@ float4 main_fragment(out_vertex input) : COLOR
     color = color + colorNB * float4( v_weight_10 * h_weight_01, v_weight_10 * h_weight_01, v_weight_10 * h_weight_01, v_weight_10 * h_weight_01 );
 
     color *= float4( RED_GAIN * COLOR_BOOST, GREEN_GAIN * COLOR_BOOST, BLUE_GAIN * COLOR_BOOST, COLOR_BOOST );
+
+	color.rgb = AdjustSaturation(color.rgb, SATURATION);
 
     return clamp( GAMMA_OUT(color), 0.0, 1.0 );
 }
