@@ -21,7 +21,7 @@
 #define GAMMA_OUTPUT 2.2
 #define BRIGHTNESS 1.7
 
-#define RED_GAIN    0.98
+#define RED_GAIN    0.94
 #define GREEN_GAIN  1.16
 #define BLUE_GAIN   1.05
 
