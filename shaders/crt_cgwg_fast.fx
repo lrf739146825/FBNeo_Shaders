@@ -90,8 +90,8 @@ float4 main_fragment(default_v2f input) : COLOR
     col = pow(col, float3(CRTCGWG_GAMMA, CRTCGWG_GAMMA, CRTCGWG_GAMMA));
     col2 = pow(col2, float3(CRTCGWG_GAMMA, CRTCGWG_GAMMA, CRTCGWG_GAMMA));
 
-    float3 sqrt1 = rsqrt(0.75 * wid);
-    float3 sqrt2 = rsqrt(0.75 * wid2);
+    float3 sqrt1 = rsqrt(0.5 * wid);
+    float3 sqrt2 = rsqrt(0.5 * wid2);
 
     float3 pow_mul1 = weights * sqrt1;
     float3 pow_mul2 = weights2 * sqrt2;
