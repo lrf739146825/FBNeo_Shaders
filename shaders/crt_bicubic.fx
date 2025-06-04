@@ -24,8 +24,8 @@ Notes:  This shader does scaling with a weighted linear filter for adjustable
 
 #define SPOT_WIDTH          0.9
 #define SPOT_HEIGHT         1.65
-#define COLOR_BOOST         1.05
-#define InputGamma          2.4
+#define COLOR_BOOST         1.0
+#define InputGamma          2.5
 #define OutputGamma         2.2
 
 #define BLURSCALEX          0.75
@@ -35,11 +35,11 @@ Notes:  This shader does scaling with a weighted linear filter for adjustable
 #define MASK_DARK           0.85
 #define MASK_FADE           1.0
 
-#define RED_GAIN    0.99
-#define GREEN_GAIN  0.92
-#define BLUE_GAIN   1.40
+#define RED_GAIN    1.245
+#define GREEN_GAIN  1.145
+#define BLUE_GAIN   1.415
 
-#define SATURATION  1.2
+#define SATURATION  1.1
 
 #define GAMMA_IN(color)     pow(color, float4(InputGamma, InputGamma, InputGamma, InputGamma))
 #define GAMMA_OUT(color)    pow(color, float4(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
