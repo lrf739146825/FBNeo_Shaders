@@ -72,9 +72,5 @@ FinalBurn Neo
 3. Recommended settings
 
 ```html
-   Point filtering                     + CRT Aperture
-   Point filtering or Linear filtering + CRT Caligari
-   Point filtering                     + CRT CGWG Fast
-   Point filtering or Linear filtering + CRT Easy Mode
    Point filtering or Linear filtering + CRT CGA
 ```
