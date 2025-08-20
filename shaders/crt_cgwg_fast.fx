@@ -21,13 +21,13 @@
 
 #include "defaults.inc"
 
-#define CRTCGWG_GAMMA 2.2
-#define SATURATION_BOOST 0.15
+#define CRTCGWG_GAMMA 2.4
+#define SATURATION_BOOST 0.2
 
-#define BRIGHT_BOOST 1.33
-#define RED_GAIN    0.76
-#define GREEN_GAIN  0.83
-#define BLUE_GAIN   0.79
+#define BRIGHT_BOOST 1.22
+#define RED_GAIN    0.96
+#define GREEN_GAIN  0.91
+#define BLUE_GAIN   1.06
 
 #define TEX2D(c) tex2D(tex0, (c)).rgb
 #define PI 3.141592653589
@@ -90,8 +90,8 @@ float4 main_fragment(default_v2f input) : COLOR
     col = pow(col, float3(CRTCGWG_GAMMA, CRTCGWG_GAMMA, CRTCGWG_GAMMA));
     col2 = pow(col2, float3(CRTCGWG_GAMMA, CRTCGWG_GAMMA, CRTCGWG_GAMMA));
 
-    float3 sqrt1 = rsqrt(0.7 * wid);
-    float3 sqrt2 = rsqrt(0.7 * wid2);
+    float3 sqrt1 = rsqrt(0.65 * wid);
+    float3 sqrt2 = rsqrt(0.65 * wid2);
 
     float3 pow_mul1 = weights * sqrt1;
     float3 pow_mul2 = weights2 * sqrt2;
