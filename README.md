@@ -77,7 +77,6 @@ FinalBurn Neo
 ```
 
 4. Full screen with bezel
-
 <pre><code>
 FinalBurn Neo
     |-> Video
