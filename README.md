@@ -75,3 +75,14 @@ FinalBurn Neo
    Point filtering or Linear filtering + CRT Easy Mode
    Point filtering or Linear filtering + CRT CGA
 ```
+
+4.Full screen with bezel
+
+<pre><code>
+FinalBurn Neo
+    |-> Video
+      |-> Window Size
+        |-> Maximum Size
+
+Right-click the screen to enter the borderless window mode
+</code></pre>
