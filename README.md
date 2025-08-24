@@ -76,7 +76,7 @@ FinalBurn Neo
    Point filtering or Linear filtering + CRT CGA
 ```
 
-4.Full screen with bezel
+4. Full screen with bezel
 
 <pre><code>
 FinalBurn Neo
