@@ -29,7 +29,7 @@
 
 #define RED_GAIN    1.35
 #define GREEN_GAIN  1.24
-#define BLUE_GAIN   1.96
+#define BLUE_GAIN   1.92
 
 #define SATURATION  1.1
 
