@@ -18,14 +18,14 @@
 #define SCANLINE_SIZE_MIN 0.5
 #define SCANLINE_SIZE_MAX 1.5
 #define GAMMA_INPUT 2.4
-#define GAMMA_OUTPUT 2.0
-#define BRIGHTNESS 1.67
+#define GAMMA_OUTPUT 2.2
+#define BRIGHTNESS 1.35
 
-#define RED_GAIN    1.16
-#define GREEN_GAIN  1.10
-#define BLUE_GAIN   1.36
+#define RED_GAIN    1.14
+#define GREEN_GAIN  1.04
+#define BLUE_GAIN   1.34
 
-#define SATURATION_BOOST  0.1
+#define SATURATION_BOOST  0.2
 
 #define RED_GLOWCOLOR 1.0
 #define GREEN_GLOWCOLOR 1.0
