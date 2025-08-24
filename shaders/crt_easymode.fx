@@ -29,7 +29,7 @@
 
 #include "defaults.inc"
 
-#define BRIGHT_BOOST 1.12
+#define BRIGHT_BOOST 1.10
 #define DILATION 1.0
 #define GAMMA_INPUT 2.4
 #define GAMMA_OUTPUT 2.2
