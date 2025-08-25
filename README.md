@@ -85,3 +85,9 @@ FinalBurn Neo
 
 Right-click the screen to enter the borderless window mode
 </code></pre>
+
+Original CRT Standard + linear filtering:
+<img width="1197" height="720" alt="Image" src="https://github.com/user-attachments/assets/cecc2c87-2de0-40f7-9471-0e6f9d157856" />
+
+Adjusted CRT Standard + linear filtering:
+<img width="1196" height="718" alt="Image" src="https://github.com/user-attachments/assets/080f454d-6094-4dfb-be45-93e33e290dbb" />
