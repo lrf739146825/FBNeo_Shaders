@@ -39,7 +39,7 @@ Notes:  This shader does scaling with a weighted linear filter for adjustable
 #define GREEN_GAIN  0.96
 #define BLUE_GAIN   1.42
 
-#define SATURATION  1.20
+#define SATURATION  1.12
 
 #define GAMMA_IN(color)     pow(color, float4(InputGamma, InputGamma, InputGamma, InputGamma))
 #define GAMMA_OUT(color)    pow(color, float4(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
