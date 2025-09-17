@@ -35,9 +35,9 @@ Notes:  This shader does scaling with a weighted linear filter for adjustable
 #define MASK_DARK           0.85
 #define MASK_FADE           0.8
 
-#define RED_GAIN    1.10
-#define GREEN_GAIN  1.10
-#define BLUE_GAIN   1.22
+#define RED_GAIN    1.14
+#define GREEN_GAIN  1.08
+#define BLUE_GAIN   1.16	
 
 #define SATURATION  1.15
 
