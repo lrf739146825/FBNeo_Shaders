@@ -31,13 +31,13 @@ Notes:  This shader does scaling with a weighted linear filter for adjustable
 #define BLURSCALEX          0.30
 #define LOWLUMSCAN          6.0
 #define HILUMSCAN           6.0
-#define BRIGHTBOOST         1.40
+#define BRIGHTBOOST         1.45
 #define MASK_DARK           0.85
 #define MASK_FADE           0.8
 
-#define RED_GAIN    1.06
-#define GREEN_GAIN  0.96
-#define BLUE_GAIN   1.28
+#define RED_GAIN    1.10
+#define GREEN_GAIN  1.10
+#define BLUE_GAIN   1.22
 
 #define SATURATION  1.15
 

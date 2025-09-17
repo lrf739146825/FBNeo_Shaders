@@ -29,13 +29,13 @@
 
 #include "defaults.inc"
 
-#define BRIGHT_BOOST 1.10
+#define BRIGHT_BOOST 1.05
 #define DILATION 1.0
 #define GAMMA_INPUT 2.4
 #define GAMMA_OUTPUT 2.2
 #define MASK_SIZE 1.0
 #define MASK_STAGGER 0.0
-#define MASK_STRENGTH 0.3
+#define MASK_STRENGTH 0.15
 #define MASK_DOT_HEIGHT 1.0
 #define MASK_DOT_WIDTH 1.0
 #define SCANLINE_BEAM_WIDTH_MAX 1.5
@@ -47,8 +47,8 @@
 #define SHARPNESS_H 0.5
 #define SHARPNESS_V 1.0
 
-#define RED_GAIN    1.15
-#define GREEN_GAIN  1.08
+#define RED_GAIN    1.14
+#define GREEN_GAIN  1.14
 #define BLUE_GAIN   1.22
 
 #define SATURATION_BOOST  0.25
