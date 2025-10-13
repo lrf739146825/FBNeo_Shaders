@@ -35,11 +35,11 @@ Notes:  This shader does scaling with a weighted linear filter for adjustable
 #define MASK_DARK           0.85
 #define MASK_FADE           0.8
 
-#define RED_GAIN    1.14
+#define RED_GAIN    1.16
 #define GREEN_GAIN  1.08
 #define BLUE_GAIN   1.16	
 
-#define SATURATION  1.15
+#define SATURATION  1.12
 
 #define GAMMA_IN(color)     pow(color, float4(InputGamma, InputGamma, InputGamma, InputGamma))
 #define GAMMA_OUT(color)    pow(color, float4(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
