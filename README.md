@@ -5,7 +5,7 @@ Non-even multiples of display scaling can lead to uneven stripes forming on the 
 
 ## Video Config Suggest ##
 
-Base Cofig
+Base Config
 
 <pre><code>
 FinalBurn Neo
