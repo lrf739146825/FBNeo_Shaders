@@ -59,7 +59,7 @@ FinalBurn Neo
 ```html
    Filter                                |  HardFX
    --------------------------------------+---------------
-   Point                                 |  CRT Aperture
+   Point                                 |  CRT Aperture  (SNES,PCE,PCE-CD)
    Point or Linear    (not different)    |  CRT Caligari
    Point                                 |  CRT CGWG Fast
    Point or Linear    (not different)    |  CRT Easy Mode
