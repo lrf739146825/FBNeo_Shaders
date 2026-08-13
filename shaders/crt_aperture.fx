@@ -6,26 +6,26 @@
 #include "defaults.inc"
 
 // TODO: Definirlo como parametros configurables desde la app
-#define SHARPNESS_IMAGE 1.0
-#define SHARPNESS_EDGES 3.0
-#define GLOW_WIDTH 0.5
+#define SHARPNESS_IMAGE 1.2
+#define SHARPNESS_EDGES 3.8
+#define GLOW_WIDTH 0.35
 #define GLOW_HEIGHT 0.5
-#define GLOW_HALATION 0.1
-#define GLOW_DIFFUSION 0.05
+#define GLOW_HALATION 0.33
+#define GLOW_DIFFUSION 0.33
 #define MASK_COLORS 2.0
-#define MASK_STRENGTH 0.3
+#define MASK_STRENGTH 0.25
 #define MASK_SIZE 1.0
-#define SCANLINE_SIZE_MIN 0.5
-#define SCANLINE_SIZE_MAX 1.5
+#define SCANLINE_SIZE_MIN 0.8
+#define SCANLINE_SIZE_MAX 1.2
 #define GAMMA_INPUT 2.4
-#define GAMMA_OUTPUT 2.0
-#define BRIGHTNESS 1.65
+#define GAMMA_OUTPUT 2.2
+#define BRIGHTNESS 1.60
 
-#define RED_GAIN    1.14
-#define GREEN_GAIN  1.04
-#define BLUE_GAIN   1.34
+#define RED_GAIN    1.10
+#define GREEN_GAIN  1.08
+#define BLUE_GAIN   1.10
 
-#define SATURATION_BOOST  0.2
+#define SATURATION_BOOST  0.15
 
 #define RED_GLOWCOLOR 1.0
 #define GREEN_GLOWCOLOR 1.0
