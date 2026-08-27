@@ -22,7 +22,7 @@
 #define BRIGHTNESS 1.45
 
 #define RED_GAIN    1.10
-#define GREEN_GAIN  1.08
+#define GREEN_GAIN  1.10
 #define BLUE_GAIN   1.10
 
 #define SATURATION_BOOST  0.15
