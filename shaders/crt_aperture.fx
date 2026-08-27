@@ -19,7 +19,7 @@
 #define SCANLINE_SIZE_MAX 1.1
 #define GAMMA_INPUT 2.4
 #define GAMMA_OUTPUT 2.0
-#define BRIGHTNESS 1.45
+#define BRIGHTNESS 1.25
 
 #define RED_GAIN    1.10
 #define GREEN_GAIN  1.10
