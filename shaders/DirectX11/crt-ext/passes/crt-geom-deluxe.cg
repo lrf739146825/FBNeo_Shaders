@@ -1,0 +1,831 @@
+//File crt-geom-deluxe.cg
+
+#pragma parameter mask_type            "Mask Pattern"                   1.0    1.0     24.0   1.0
+#pragma parameter aperture_strength    "Shadow mask strength"           0.4    0.0     1.0    0.05
+#pragma parameter aperture_brightboost "Shadow mask brightness boost"   0.4    0.0     1.0    0.05
+#pragma parameter CRTgamma             "Gamma of simulated CRT"         2.4    0.7     4.0    0.05
+#pragma parameter halation             "Halation amplitude"             0.1    0.0     0.3    0.01
+#pragma parameter width                "Halation blur width"            2.0    0.1     4.0    0.1
+#pragma parameter curvature            "Enable Curvature"               1.0    0.0     1.0    1.0
+#pragma parameter R                    "Radius of curvature"            3.5    0.5     10.0   0.1
+#pragma parameter d                    "Distance to screen"             2.0    0.1     10.0   0.1
+#pragma parameter angle_x              "Tilt X"                         0.0    -1.0    1.0    0.01
+#pragma parameter angle_y              "Tilt Y"                         0.0    -1.0    1.0    0.01
+#pragma parameter cornersize           "Rounded corner size"            0.01   0.00    0.10   0.01
+#pragma parameter cornersmooth         "Border smoothness"              1000.0 100.0   2000.0 100.0
+#pragma parameter overscan_x           "Overscan X"                     1.0    0.8     1.2    0.005
+#pragma parameter overscan_y           "Overscan Y"                     1.0    0.8     1.2    0.005
+#pragma parameter monitorgamma         "Gamma of output display"        2.2    0.7     4.0    0.05
+#pragma parameter aspect_x             "Aspect ratio X"                 1.0    0.3     1.0    0.01
+#pragma parameter aspect_y             "Aspect ratio Y"                 0.75   0.3     1.0    0.01
+#pragma parameter scanline_weight      "CRTGeom Scanline Weight"        0.3    0.1     0.5    0.01
+#pragma parameter geom_lum             "CRTGeom Luminance"              0.0    0.0     1.0    0.01
+#pragma parameter interlace_detect     "CRTGeom Interlacing Simulation" 1.0    0.0     1.0    1.0
+#pragma parameter phosphor_power       "Phosphor decay power"           1.2    0.5     3.0    0.05
+#pragma parameter phosphor_amplitude   "Phosphor persistence amplitude" 0.04   0.0     0.2    0.01
+#pragma parameter saturation           "Color saturation"               1.0    0.0     2.0    0.05
+#pragma parameter NTSCintensity        "NTSC Color intensity"           0.0    0.0     1.0    0.1
+#pragma parameter BLK                  "Black Level (IRE)"              0.0    -7.5    7.5    0.5
+#pragma parameter EXPOSURE             "Exposure"                       1.0    0.1     2.0    0.05
+#pragma parameter CT                   "Color Temperature Adjust (K)"   0.0    -2800.0 2800.0 100.0
+#pragma parameter motion_blur          "Motion blur (frame blend)"      0.0    0.0     1.0    1.0
+#pragma parameter pixel_glow           "Pixel center glow / edge soft"  0.5    0.0     1.0    0.05
+
+uniform float mask_type            = 1.0;
+uniform float aperture_strength    = 0.4;
+uniform float aperture_brightboost = 0.4;
+uniform float CRTgamma             = 2.4;
+uniform float halation             = 0.1;
+uniform float width                = 2.0;
+uniform float curvature            = 1.0;
+uniform float R                    = 3.5;
+uniform float d                    = 2.0;
+uniform float angle_x              = 0.0;
+uniform float angle_y              = 0.0;
+uniform float cornersize           = 0.01;
+uniform float cornersmooth         = 1000.0;
+uniform float overscan_x           = 1.0;
+uniform float overscan_y           = 1.0;
+uniform float monitorgamma         = 2.2;
+uniform float aspect_x             = 1.0;
+uniform float aspect_y             = 0.75;
+uniform float scanline_weight      = 0.3;
+uniform float geom_lum             = 0.0;
+uniform float interlace_detect     = 1.0;
+uniform float phosphor_power       = 1.2;
+uniform float phosphor_amplitude   = 0.04;
+uniform float saturation           = 1.0;
+uniform float NTSCintensity        = 0.0;
+uniform float BLK                  = 0.0;
+uniform float EXPOSURE             = 1.0;
+uniform float CT                   = 0.0;
+uniform float motion_blur          = 0.0;
+uniform float pixel_glow           = 0.5;
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float  frame_count;
+    float  frame_direction;
+};
+
+struct out_vertex
+{
+    float4 position : POSITION;
+    float4 color    : COLOR;
+    float2 texCoord : TEXCOORD0;
+};
+
+sampler2D decal : TEXUNIT0;
+sampler2D ORIG  : TEXUNIT1;
+sampler2D PREV1 : TEXUNIT2;
+sampler2D PREV2 : TEXUNIT3;
+sampler2D PREV3 : TEXUNIT4;
+sampler2D PREV4 : TEXUNIT5;
+
+out_vertex main_vertex
+(
+    float4 position : POSITION,
+    float4 color    : COLOR,
+    float2 texCoord : TEXCOORD0,
+    uniform float4x4 modelViewProj
+)
+{
+    out_vertex OUT;
+    OUT.position = mul(modelViewProj, position);
+    OUT.color    = color;
+    OUT.texCoord = texCoord;
+    return OUT;
+}
+
+// NTSC -> sRGB colour-space conversion.
+vec3 NTSCtoSRGB(vec3 c)
+{
+  const float3x3 NTSCtoXYZ = float3x3(
+    0.6068909, 0.1735011, 0.2003480,
+    0.2989164, 0.5865990, 0.1144845,
+    0.0000000, 0.0660957, 1.1162243);
+
+  const float3x3 XYZtoSRGB = float3x3(
+     3.2404542, -1.5371385, -0.4985314,
+    -0.9692660,  1.8760108,  0.0415560,
+     0.0556434, -0.2040259,  1.0572252);
+
+  const vec3 ZERO3 = vec3(0.0, 0.0, 0.0);
+  const vec3 ONE3  = vec3(1.0, 1.0, 1.0);
+  const vec3 GAMMA_DECODE = vec3(2.2, 2.2, 2.2);
+  const vec3 GAMMA_ENCODE = vec3(1.0/2.2, 1.0/2.2, 1.0/2.2);
+
+  float3 v = mul(NTSCtoXYZ, pow(c, GAMMA_DECODE));
+  v = clamp(v, ZERO3, ONE3);
+  v = mul(XYZtoSRGB, v);
+  v = clamp(v, ZERO3, ONE3);
+  return pow(v, GAMMA_ENCODE);
+}
+
+// Colour temperature (K) -> white point RGB; 6500 K = neutral.
+vec3 colourTempToRGB(float temperature)
+{
+  float3x3 m;
+  if (temperature > 6500.0)
+  {
+    m = float3x3(
+      1745.0425298314172, 1216.6168361476490, -8257.7997278925690,
+      -2666.3474220535695, -2173.1012343082230, 2575.2827530017594,
+      0.55995389139931482, 0.70381203140554553, 1.8993753891711275);
+  }
+  else
+  {
+    m = float3x3(
+      0.0, -2902.1955373783176, -8257.7997278925690,
+      0.0, 1669.5803561666639, 2575.2827530017594,
+      1.0, 1.3302673723350029, 1.8993753891711275);
+  }
+
+  vec3 tt  = vec3(temperature, temperature, temperature);
+  vec3 col = clamp(m[0] / (tt + m[1]) + m[2], vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
+  return lerp(col, vec3(1.0, 1.0, 1.0), smoothstep(1000.0, 0.0, temperature));
+}
+
+// Subpixel mask patterns (from subpixel_masks.h, public domain); alpha = lit fraction.
+vec3 mask_weights_alpha(vec2 coord, float mask_intensity, int phosphor_layout, out float alpha){
+  vec3 weights = vec3(1.,1.,1.);
+  float on = 1.;
+  float off = 1.-mask_intensity;
+  vec3 red     = vec3(on,  off, off);
+  vec3 green   = vec3(off, on,  off);
+  vec3 blue    = vec3(off, off, on );
+  vec3 magenta = vec3(on,  off, on );
+  vec3 yellow  = vec3(on,  on,  off);
+  vec3 cyan    = vec3(off, on,  on );
+  vec3 black   = vec3(off, off, off);
+  vec3 white   = vec3(on,  on,  on );
+  int w = 0, z = 0;
+  alpha = 1.;
+
+  // shared aperture pattern
+  vec3 aperture_weights = mix(magenta, green, floor(mod(coord.x, 2.0)));
+
+  if(phosphor_layout == 0) return weights;
+
+  else if(phosphor_layout == 1){
+    // classic aperture for RGB panels
+    weights  = aperture_weights;
+    alpha = 3./6.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 2){
+    // 2x2 shadow mask for RGB panels
+    vec3 inverse_aperture = mix(green, magenta, floor(mod(coord.x, 2.0)));
+    weights               = mix(aperture_weights, inverse_aperture, floor(mod(coord.y, 2.0)));
+    alpha = 6./12.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 3){
+    // slot mask for RGB panels
+    vec3 slotmask[3][4] = {
+      {magenta, green, black,   black},
+      {magenta, green, magenta, green},
+      {black,   black, magenta, green}
+    };
+
+    w = int(floor(mod(coord.y, 3.0)));
+    z = int(floor(mod(coord.x, 4.0)));
+
+    weights = slotmask[w][z];
+    alpha = 12./36.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 4){
+    // classic aperture for RBG panels
+    weights  = mix(yellow, blue, floor(mod(coord.x, 2.0)));
+    alpha = 3./6.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 5){
+    // 2x2 shadow mask for RBG panels
+    vec3 inverse_aperture = mix(blue, yellow, floor(mod(coord.x, 2.0)));
+    weights               = mix(mix(yellow, blue, floor(mod(coord.x, 2.0))), inverse_aperture, floor(mod(coord.y, 2.0)));
+    alpha = 6./12.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 6){
+    // aperture_1_4_rgb
+    vec3 ap4[4] = vec3[](red, green, blue, black);
+
+    z = int(floor(mod(coord.x, 4.0)));
+
+    weights = ap4[z];
+    alpha = 3./12.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 7){
+    // aperture_2_5_bgr
+    vec3 ap3[5] = vec3[](red, magenta, blue, green, green);
+
+    z = int(floor(mod(coord.x, 5.0)));
+
+    weights = ap3[z];
+    alpha = 6./15.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 8){
+    // aperture_3_6_rgb
+    vec3 big_ap[7] = vec3[](red, red, yellow, green, cyan, blue, blue);
+
+    w = int(floor(mod(coord.x, 7.)));
+
+    weights = big_ap[w];
+    alpha = 8./18.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 9){
+    // aperture_2_4_rgb
+    vec3 big_ap_rgb[4] = vec3[](red, yellow, cyan, blue);
+
+    w = int(floor(mod(coord.x, 4.)));
+
+    weights = big_ap_rgb[w];
+    alpha = 6./12.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 10){
+    // aperture_3_6_rgb, reduced TVL
+    vec3 big_ap_rbg[4] = vec3[](red, magenta, cyan, green);
+
+    w = int(floor(mod(coord.x, 4.)));
+
+    weights = big_ap_rbg[w];
+    alpha = 6./12.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 11){
+    // delta_1_4x1_rgb
+    vec3 delta1[2][4] = {
+      {red,  green, blue, black},
+      {blue, black, red,  green}
+    };
+
+    w = int(floor(mod(coord.y, 2.0)));
+    z = int(floor(mod(coord.x, 4.0)));
+
+    weights = delta1[w][z];
+    alpha = 6./24.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 12){
+    // delta_2_4x1_rgb
+    vec3 delta[2][4] = {
+      {red, yellow, cyan, blue},
+      {cyan, blue, red, yellow}
+    };
+
+    w = int(floor(mod(coord.y, 2.0)));
+    z = int(floor(mod(coord.x, 4.0)));
+
+    weights = delta[w][z];
+    alpha = 12./24.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 13){
+    // delta_2_4x2_rgb
+    vec3 delta[4][4] = {
+      {red,  yellow, cyan, blue},
+      {red,  yellow, cyan, blue},
+      {cyan, blue,   red,  yellow},
+      {cyan, blue,   red,  yellow}
+    };
+
+    w = int(floor(mod(coord.y, 4.0)));
+    z = int(floor(mod(coord.x, 4.0)));
+
+    weights = delta[w][z];
+    alpha = 24./48.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 14){
+    // slot mask for RGB panels
+    vec3 slotmask[3][6] = {
+      {magenta, green, black, black,   black, black},
+      {magenta, green, black, magenta, green, black},
+      {black,   black, black, magenta, green, black}
+    };
+
+    w = int(floor(mod(coord.y, 3.0)));
+    z = int(floor(mod(coord.x, 6.0)));
+
+    weights = slotmask[w][z];
+    alpha = 12./54.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 15){
+    // slot_2_4x4_rgb
+    vec3 slot2[4][8] = {
+      {red,   yellow, cyan,  blue,  red,   yellow, cyan,  blue },
+      {red,   yellow, cyan,  blue,  black, black,  black, black},
+      {red,   yellow, cyan,  blue,  red,   yellow, cyan,  blue },
+      {black, black,  black, black, red,   yellow, cyan,  blue }
+    };
+
+    w = int(floor(mod(coord.y, 4.0)));
+    z = int(floor(mod(coord.x, 8.0)));
+
+    weights = slot2[w][z];
+    alpha = 36./96.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 16){
+    // slot mask for RBG panels
+    vec3 slotmask[3][4] = {
+      {yellow, blue,  black,  black},
+      {yellow, blue,  yellow, blue},
+      {black,  black, yellow, blue}
+    };
+
+    w = int(floor(mod(coord.y, 3.0)));
+    z = int(floor(mod(coord.x, 4.0)));
+
+    weights = slotmask[w][z];
+    alpha = 14./36.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 17){
+    // slot_2_5x4_bgr
+    vec3 slot2[4][10] = {
+      {red,   magenta, blue,  green, green, red,   magenta, blue,  green, green},
+      {black, blue,    blue,  green, green, red,   red,     black, black, black},
+      {red,   magenta, blue,  green, green, red,   magenta, blue,  green, green},
+      {red,   red,     black, black, black, black, blue,    blue,  green, green}
+    };
+
+    w = int(floor(mod(coord.y, 4.0)));
+    z = int(floor(mod(coord.x, 10.0)));
+
+    weights = slot2[w][z];
+    alpha = 42./120.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 18){
+    // slot_2_5x4_rgb
+    vec3 slot2[4][10] = {
+      {red,   red,    green, green, blue,  magenta, magenta, blue,  green, green},
+      {red,   red,    green, green, blue,  magenta, magenta, blue,  green, green},
+      {black, black,  black, black, black, red,     red,     blue,  green, green},
+      {red,   red,    green, green, blue,  black,   black,   black, black, black}
+    };
+
+    w = int(floor(mod(coord.y, 4.0)));
+    z = int(floor(mod(coord.x, 10.0)));
+
+    weights = slot2[w][z];
+    alpha = 54./120.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 19){
+    // aperture_2_5_bgr variant
+    vec3 slot2[6][14] = {
+      {red,   magenta, blue,  green, green, green, green, green, green, green, green, blue,  magenta, red},
+      {black, black,   black, black, blue,  blue,  blue,  blue,  blue,  blue,  blue,  black, black,   black},
+      {black, black,   black, black, black, black, red,   red,   red,   black, black, black, black,   black},
+      {red,   magenta, blue,  green, green, green, green, green, green, green, green, blue,  magenta, red},
+      {black, black,   black, black, black, black, red,   red,   red,   black, black, black, black,   black},
+      {black, black,   black, black, blue,  blue,  blue,  blue,  blue,  blue,  blue,  black, black,   black}
+    };
+
+    w = int(floor(mod(coord.y, 6.0)));
+    z = int(floor(mod(coord.x, 14.0)));
+
+    weights = slot2[w][z];
+    alpha = 50./252.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 20){
+    // tatemask
+    vec3 tatemask[4][4] = {
+      {green, magenta, green, magenta},
+      {black, blue,    green, red},
+      {green, magenta, green, magenta},
+      {green, red,     black, blue}
+    };
+
+    w = int(floor(mod(coord.y, 4.0)));
+    z = int(floor(mod(coord.x, 4.0)));
+
+    weights = tatemask[w][z];
+    alpha = 18./48.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 21){
+    // HDR slot mask
+    vec3 slot[4][8] = {
+      {red,   green, blue,  black, red,   green, blue,  black},
+      {red,   green, blue,  black, black, black, black, black},
+      {red,   green, blue,  black, red,   green, blue,  black},
+      {black, black, black, black, red,   green, blue,  black}
+    };
+
+    w = int(floor(mod(coord.y, 4.0)));
+    z = int(floor(mod(coord.x, 8.0)));
+
+    weights = slot[w][z];
+    alpha = 21./96.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 22){
+    // black and white aperture
+    vec3 bw3[3] = vec3[](black, white, white);
+
+    z = int(floor(mod(coord.x, 3.0)));
+
+    weights = bw3[z];
+    alpha = 2./3.;
+    return weights;
+  }
+
+  else if(phosphor_layout == 23){
+    // black and white aperture (4k)
+    vec3 bw4[4] = vec3[](black, black, white, white);
+
+    z = int(floor(mod(coord.x, 4.0)));
+
+    weights = bw4[z];
+    alpha = 0.5;
+    return weights;
+  }
+
+  else if(phosphor_layout == 24){
+    // shadow mask
+    vec3 shadow[6][10] = {
+      {green, cyan, blue, blue, blue, red, red, red, yellow, green},
+      {green, cyan, blue, blue, blue, red, red, red, yellow, green},
+      {green, cyan, blue, blue, blue, red, red, red, yellow, green},
+      {red, red, red, yellow, green, green, cyan, blue, blue, blue},
+      {red, red, red, yellow, green, green, cyan, blue, blue, blue},
+      {red, red, red, yellow, green, green, cyan, blue, blue, blue},
+    };
+
+    w = int(floor(mod(coord.y, 6.0)));
+    z = int(floor(mod(coord.x, 10.0)));
+
+    weights = shadow[w][z];
+    alpha = 72./180.;
+    return weights;
+  }
+
+  else return weights;
+}
+
+// screen curvature
+float intersect(vec2 xy, vec2 sinangle, vec2 cosangle)
+{
+  float A = dot(xy,xy) + d*d;
+  float B = 2.0*(R*(dot(xy,sinangle) - d*cosangle.x*cosangle.y) - d*d);
+  float C = d*d + 2.0*R*d*cosangle.x*cosangle.y;
+  return (-B-sqrt(B*B-4.0*A*C))/(2.0*A);
+}
+
+vec2 bkwtrans(vec2 xy, vec2 sinangle, vec2 cosangle)
+{
+  float c = intersect(xy, sinangle, cosangle);
+  vec2 pt = vec2(c)*xy;
+  pt -= vec2(-R)*sinangle;
+  pt /= vec2(R);
+  vec2 tang = sinangle/cosangle;
+  vec2 poc = pt/cosangle;
+  float A = dot(tang,tang)+1.0;
+  float B = -2.0*dot(poc,tang);
+  float C = dot(poc,poc)-1.0;
+  float a = (-B+sqrt(B*B-4.0*A*C))/(2.0*A);
+  vec2 uv = (pt-a*sinangle)/cosangle;
+  float r = max(abs(R*acos(a)), 1e-5);
+  return uv*r/sin(r/R);
+}
+
+vec2 fwtrans(vec2 uv, vec2 sinangle, vec2 cosangle)
+{
+  float r = max(abs(sqrt(dot(uv,uv))), 1e-5);
+  uv *= sin(r/R)/r;
+  float x = 1.0-cos(r/R);
+  float D = d/R + x*cosangle.x*cosangle.y+dot(uv,sinangle);
+  return d*(uv*cosangle-x*sinangle)/D;
+}
+
+vec3 maxscale(vec2 sinangle, vec2 cosangle)
+{
+  vec2 c = bkwtrans(-R*sinangle/(1.0 + R/d*cosangle.x*cosangle.y), sinangle, cosangle);
+  vec2 a = vec2(0.5,0.5)*vec2(aspect_x, aspect_y);
+  vec2 lo = vec2(fwtrans(vec2(-a.x,c.y), sinangle, cosangle).x,
+                 fwtrans(vec2(c.x,-a.y), sinangle, cosangle).y)/vec2(aspect_x, aspect_y);
+  vec2 hi = vec2(fwtrans(vec2(+a.x,c.y), sinangle, cosangle).x,
+                 fwtrans(vec2(c.x,+a.y), sinangle, cosangle).y)/vec2(aspect_x, aspect_y);
+  return vec3((hi+lo)*vec2(aspect_x, aspect_y)*0.5, max(hi.x-lo.x,hi.y-lo.y));
+}
+
+vec2 transform(vec2 coord, vec3 stretch, vec2 sinangle, vec2 cosangle)
+{
+  vec2 aspxy = vec2(aspect_x, aspect_y);
+  coord = (coord-vec2(0.5))*aspxy*stretch.z+stretch.xy;
+  vec2 r = bkwtrans(coord, sinangle, cosangle)/vec2(overscan_x, overscan_y)/aspxy+vec2(0.5);
+  return r;
+}
+
+float corner(vec2 coord)
+{
+  vec2 ovs = vec2(overscan_x, overscan_y);
+  coord = (coord - vec2(0.5)) * ovs + vec2(0.5);
+  coord = min(coord, vec2(1.0)-coord) * vec2(aspect_x, aspect_y);
+  vec2 cdist = vec2(cornersize);
+  coord = (cdist - min(coord,cdist));
+  float dist = sqrt(dot(coord,coord));
+  return clamp((max(cdist.x,1e-3)-dist)*cornersmooth,0.0, 1.0);
+}
+
+// scanline beam profile
+vec4 scanlineWeights(float distance, vec4 color)
+{
+  const vec4 TWO   = vec4(2.0, 2.0, 2.0, 2.0);
+  const vec4 FOUR  = vec4(4.0, 4.0, 4.0, 4.0);
+  const vec4 HALF  = vec4(0.5, 0.5, 0.5, 0.5);
+  const vec4 PT6   = vec4(0.6, 0.6, 0.6, 0.6);
+  const vec4 PT2   = vec4(0.2, 0.2, 0.2, 0.2);
+  vec4 wid = TWO + TWO * pow(color, FOUR);
+  vec4 weights = vec4(distance/scanline_weight);
+  vec4 t = weights * inversesqrt(HALF*wid);
+  vec4 e = exp(-pow(t, wid));
+  vec4 den = PT6 + PT2*wid;
+  return (geom_lum + 1.4) * e / den;
+}
+
+// sample + gamma-decode a pass texture
+vec4 TEX2D_sampler(vec2 c, vec2 tex_ratio, sampler2D samp)
+{
+  vec2 underscan = step(vec2(0.0,0.0),c) * step(vec2(0.0,0.0),vec2(1.0,1.0)-c);
+  vec4 col = tex2D(samp, vec2(c.x*tex_ratio.x, c.y*tex_ratio.y)) * vec4(underscan.x*underscan.y);
+  col = pow(col, vec4(CRTgamma,CRTgamma,CRTgamma,CRTgamma));
+  return col;
+}
+
+vec4 TEX2D(vec2 c, vec2 tex_ratio)
+{
+  return TEX2D_sampler(c, tex_ratio, ORIG);
+}
+
+vec3 texblur(vec2 c, vec2 tex_ratio)
+{
+  vec3 col = pow(tex2D(decal, vec2(c.x*tex_ratio.x, c.y*tex_ratio.y)).rgb, vec3(CRTgamma,CRTgamma,CRTgamma));
+  // blur radius relative to a 320-pixel reference width (original crt-geom convention)
+  float w = width / 320.0;
+  c = min(c, vec2(1.0,1.0)-c) * vec2(aspect_x, aspect_y) * vec2(1.0/w, 1.0/w);
+  vec2 e2c = exp(-c*c);
+  // erf approximation: convolution of a gaussian with a step
+  c = (step(vec2(0.0,0.0),c)-vec2(0.5,0.5)) * sqrt(vec2(1.0,1.0)-e2c) * (vec2(1.0,1.0) + vec2(0.1749,0.1749)*e2c) + vec2(0.5,0.5);
+  return col * vec3( c.x * c.y );
+}
+
+float4 main_fragment
+(
+    in out_vertex VAR,
+    uniform input IN
+) : COLOR
+{
+  vec2 tex_ratio = vec2(IN.video_size.x/IN.texture_size.x, IN.video_size.y/IN.texture_size.y);
+  // 0..1 normalized image coordinates (strip FBNeo TEXCOORD0 padding)
+  vec2 v_texCoord = vec2(VAR.texCoord.x/tex_ratio.x, VAR.texCoord.y/tex_ratio.y);
+
+  vec2 TextureSize = vec2(IN.video_size.x, IN.video_size.y);
+  // output pixel grid (IN.output_size) is used for mask subpixel tiling only
+
+  // curvature constants derived from tilt angles
+  vec2 ang = vec2(angle_x, angle_y);
+  vec2 v_sinangle = vec2(sin(ang.x), sin(ang.y));
+  vec2 v_cosangle = vec2(cos(ang.x), cos(ang.y));
+  vec3 v_stretch  = maxscale(v_sinangle, v_cosangle);
+  // interlace detect: only for true interlaced sources (>=400 lines)
+  vec2 ilfac = vec2(1.0, clamp(floor(IN.video_size.y/(interlace_detect == 1.0 ? 400.0 : 1000.0)), 1.0, 2.0));
+  vec2 v_one = vec2(ilfac.x/TextureSize.x, ilfac.y/TextureSize.y);
+
+  // texel coordinates of the active pixel
+  vec2 xy;
+  if (curvature > 0.5)
+    xy = transform(v_texCoord, v_stretch, v_sinangle, v_cosangle);
+  else
+    xy = vec2((v_texCoord.x-0.5)/overscan_x+0.5, (v_texCoord.y-0.5)/overscan_y+0.5);
+  float cval = corner(xy);
+
+  vec2 xy0 = xy;
+
+  // odd/even field offset for interlaced sources only (epsilon guards mod() precision)
+  vec2 ilvec = vec2(0.0, ilfac.y > 1.5 ? mod(IN.frame_count + 0.0001, 2.0) : 0.0);
+
+  // fractional pixel phase in native source-pixel units
+  vec2 ratio_scale = vec2((xy.x * TextureSize.x - 0.5 + ilvec.x) / ilfac.x,
+                          (xy.y * TextureSize.y - 0.5 + ilvec.y) / ilfac.y);
+
+  float oversample_filter = fwidth(ratio_scale.y);
+  // clamp phase away from 0/1 to avoid fract() flicker at high output resolutions
+  vec2 uv_ratio = clamp(fract(ratio_scale), 1e-4, 1.0 - 1e-4);
+
+  // snap to the centre of the underlying texel
+  xy = vec2((floor(ratio_scale.x)*ilfac.x + 0.5 - ilvec.x) / TextureSize.x,
+            (floor(ratio_scale.y)*ilfac.y + 0.5 - ilvec.y) / TextureSize.y);
+
+  // Lanczos2 horizontal 4-tap coefficients
+  const float PI = 3.141592653589;
+  const vec4 EPS4 = vec4(1e-5);
+  const vec4 ONE4 = vec4(1.0);
+  vec4 t = vec4(1.0 + uv_ratio.x, uv_ratio.x, 1.0 - uv_ratio.x, 2.0 - uv_ratio.x);
+  vec4 coeffs = PI * t;
+  coeffs = max(abs(coeffs), EPS4);
+  vec4 s_coeffs = sin(coeffs);
+  coeffs = 2.0 * s_coeffs * sin(coeffs * 0.5) / (coeffs * coeffs);
+  coeffs /= dot(coeffs, ONE4);
+
+  // Pixel-center glow / edge softening (reuses the 4 Lanczos taps, zero extra samples):
+  //   dc       = distance to nearest source-texel centre (0..0.5)
+  //   edge_mix = 0 at texel centre -> pure Lanczos impulse, no luminance loss
+  //            = pixel_glow at edge -> blend in the soft (tent) kernel
+  //   soft kernel = 4-tap bilinear tent, unit-sum, so mixing stays unit-sum.
+  float bx = uv_ratio.x;
+  float dc = min(bx, 1.0 - bx);
+  float edge_mix = pixel_glow * (2.0 * dc);
+  vec4 soft_coeffs = vec4(0.0, 1.0 - bx, bx, 0.0);
+  coeffs = mix(coeffs, soft_coeffs, edge_mix);
+
+  // vertical sampling: two rows (current + next) in native source-pixel distance
+  float y_0  = xy.y;                    // current source row
+  float y_p1 = xy.y + v_one.y;          // next source row
+
+  // horizontally Lanczos2-filter both rows
+  vec4 col  = clamp( TEX2D(vec2(xy.x - v_one.x,      y_0), tex_ratio)*coeffs.x +
+                     TEX2D(vec2(xy.x,                y_0), tex_ratio)*coeffs.y +
+                     TEX2D(vec2(xy.x + v_one.x,      y_0), tex_ratio)*coeffs.z +
+                     TEX2D(vec2(xy.x + 2.0*v_one.x,  y_0), tex_ratio)*coeffs.w, 0.0, 1.0);
+  vec4 col2 = clamp( TEX2D(vec2(xy.x - v_one.x,      y_p1), tex_ratio)*coeffs.x +
+                     TEX2D(vec2(xy.x,                y_p1), tex_ratio)*coeffs.y +
+                     TEX2D(vec2(xy.x + v_one.x,      y_p1), tex_ratio)*coeffs.z +
+                     TEX2D(vec2(xy.x + 2.0*v_one.x,  y_p1), tex_ratio)*coeffs.w, 0.0, 1.0);
+
+  // motion blur: 50/50 blend with the previous raw frame (PREV1), same kernel
+  if (motion_blur > 0.5) {
+    vec4 colp  = clamp( TEX2D_sampler(vec2(xy.x - v_one.x,      y_0), tex_ratio, PREV1)*coeffs.x +
+                        TEX2D_sampler(vec2(xy.x,                y_0), tex_ratio, PREV1)*coeffs.y +
+                        TEX2D_sampler(vec2(xy.x + v_one.x,      y_0), tex_ratio, PREV1)*coeffs.z +
+                        TEX2D_sampler(vec2(xy.x + 2.0*v_one.x,  y_0), tex_ratio, PREV1)*coeffs.w, 0.0, 1.0);
+    vec4 colp2 = clamp( TEX2D_sampler(vec2(xy.x - v_one.x,      y_p1), tex_ratio, PREV1)*coeffs.x +
+                        TEX2D_sampler(vec2(xy.x,                y_p1), tex_ratio, PREV1)*coeffs.y +
+                        TEX2D_sampler(vec2(xy.x + v_one.x,      y_p1), tex_ratio, PREV1)*coeffs.z +
+                        TEX2D_sampler(vec2(xy.x + 2.0*v_one.x,  y_p1), tex_ratio, PREV1)*coeffs.w, 0.0, 1.0);
+    col  = (col  + colp ) * 0.5;
+    col2 = (col2 + colp2) * 0.5;
+  }
+
+  // beam weights: 3-tap vertical oversample when downscaling, native source-pixel distance
+  const float INV3 = 1.0 / 3.0;
+  float uv_y_off = INV3 * oversample_filter;
+
+  // 3-tap-oversampled beam weight for one row
+  #define BEAM_W(DIST, ROW) ( \
+      scanlineWeights(abs((DIST)),            (ROW)) + \
+      scanlineWeights(abs((DIST) + uv_y_off), (ROW)) + \
+      scanlineWeights(abs((DIST) - uv_y_off), (ROW)) ) * INV3
+
+  vec4 weights  = BEAM_W(uv_ratio.y,        col);
+  vec4 weights2 = BEAM_W(1.0 - uv_ratio.y,  col2);
+
+  // two-row beam weighting (unnormalised): keeps scanlines crisp on flat colour blocks
+  vec3 mul_res = (col * weights + col2 * weights2).rgb;
+  #undef BEAM_W
+
+  // halation and screen corners
+  vec3 blur = texblur(xy0, tex_ratio);
+  mul_res = mix(mul_res, blur, halation) * vec3(cval);
+
+  // shadow mask tiled on the output pixel grid (physical screen pixels, no scaling)
+  float alpha;
+  vec2 mask_coord = v_texCoord * IN.output_size;
+  vec4 mask = vec4(mask_weights_alpha(mask_coord, 1., int(mask_type), alpha), 1.0);
+  mask.a = alpha;
+
+  // mask darkening from native texel size
+  vec2 tex_size1 = IN.output_size / IN.video_size;
+  float nbright = (255.0 - 255.0*mask.a);
+  // No upper clamp: fbright is ~8-16 on an upscaled output and the mask's
+  // bright-subpixel compensation depends on its magnitude. Clamping it to 1.0
+  // collapses chi to mul_res and nullifies the aperture_brightboost path.
+  float fbright = max(nbright / max(tex_size1.x * tex_size1.y, 1.0), 1e-4);
+  // average darkening factor of the mask
+  float ap_base = 1.0 - aperture_strength * (1.0 - aperture_brightboost);
+  float aperture_average = mix(ap_base, 1.0, fbright);
+  // colour of the dark/bright mask pixels
+  vec3 ap_dark   = vec3(1.0 - aperture_strength);
+  vec3 ap_bright = vec3(aperture_strength * aperture_brightboost);
+  vec3 clow = ap_dark * mul_res + ap_bright * mul_res * mul_res;
+  float ifbright = 1.0 / fbright;
+  float ifb_sub1 = ifbright - 1.0;
+  vec3  ifb_aper = vec3(ifbright * aperture_average);
+  // colour of the bright mask pixels
+  vec3 chi = ifb_aper * mul_res - vec3(ifb_sub1) * clow;
+
+  vec3 cout_lin = mix(clow, chi, mask.rgb);  // linear-space output before monitor gamma
+  vec3 cout = pow(cout_lin, vec3(1.0 / monitorgamma));
+
+  // phosphor afterglow: FIR tail over PREV1..PREV4, weight = amplitude * k^(-power)
+  if (phosphor_amplitude > 0.001) {
+    vec2 xy_prev = xy;                                  // reuse main-frame pixel grid
+
+    // reuse the shadow mask & aperture already computed for this pixel
+    vec3 wmask = mask.rgb;
+
+    vec3 tail = vec3(0.0, 0.0, 0.0);
+    float amp = phosphor_amplitude;
+
+    // horizontally Lanczos2-sample one row of a history sampler
+    #define PHOS_ROW(SAMP, Y) clamp( \
+        TEX2D_sampler(vec2(xy_prev.x - v_one.x,     (Y)), tex_ratio, (SAMP))*coeffs.x + \
+        TEX2D_sampler(vec2(xy_prev.x,               (Y)), tex_ratio, (SAMP))*coeffs.y + \
+        TEX2D_sampler(vec2(xy_prev.x + v_one.x,     (Y)), tex_ratio, (SAMP))*coeffs.z + \
+        TEX2D_sampler(vec2(xy_prev.x + 2.0*v_one.x, (Y)), tex_ratio, (SAMP))*coeffs.w, 0.0, 1.0)
+
+    // per-frame beam weights: wid depends on this frame's own colour, so weights
+    // are recomputed (single centre sample per row; history needs no oversample)
+    #define PHOS_FRAME(SAMP, K) \
+    { \
+        float decay = amp * pow(float(K), -phosphor_power); \
+        vec4 pc  = PHOS_ROW((SAMP), y_0); \
+        vec4 pc2 = PHOS_ROW((SAMP), y_p1); \
+        vec4 pw  = scanlineWeights(uv_ratio.y,       pc); \
+        vec4 pw2 = scanlineWeights(1.0 - uv_ratio.y, pc2); \
+        vec3 mres = (pc * pw + pc2 * pw2).rgb; \
+        vec3 cl_p = ap_dark*mres + ap_bright*mres*mres; \
+        vec3 ch_p = ifb_aper*mres - vec3(ifb_sub1)*cl_p; \
+        tail += mix(cl_p, ch_p, wmask) * decay; \
+    }
+
+    PHOS_FRAME(PREV1, 2)
+    PHOS_FRAME(PREV2, 3)
+    PHOS_FRAME(PREV3, 4)
+    PHOS_FRAME(PREV4, 5)
+
+    #undef PHOS_ROW
+    #undef PHOS_FRAME
+
+    // phosphor tail added in linear light, before monitor gamma
+    cout_lin += tail;
+    cout = pow(clamp(cout_lin, 0.0, 1.0), vec3(1.0 / monitorgamma));
+  }
+
+  // saturation: Rec.601 luminance-preserving blend (1.0 = unchanged)
+  float y_n = 0.299*cout.r + 0.587*cout.g + 0.114*cout.b;
+  cout = clamp(mix(vec3(y_n, y_n, y_n), cout, saturation),
+               vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
+
+  // Colour adjust; all knobs neutral by default.
+  const vec3 ZERO3 = vec3(0.0, 0.0, 0.0);
+  const vec3 ONE3  = vec3(1.0, 1.0, 1.0);
+  const vec3 LUMA709 = vec3(0.2126, 0.7152, 0.0722);
+
+  // 1. NTSC colour space
+  if (NTSCintensity > 0.01)
+      cout = lerp(cout, NTSCtoSRGB(cout), NTSCintensity);
+
+  // 2+3. black level (IRE) + exposure (affine scale/offset)
+  float blk_v    = BLK * 0.01;
+  float blk_exp  = (100.0 / (100.0 - BLK)) * EXPOSURE;
+  cout = clamp((cout - vec3(blk_v)) * blk_exp, ZERO3, ONE3);
+
+  // 4. colour temperature (Rec.709 luminance preserving)
+  if (CT != 0.0)
+  {
+      vec3 wp = colourTempToRGB(6500.0 + CT);
+      vec3 col_ct = cout * wp;
+      float luma_in  = dot(cout,   LUMA709);
+      float luma_out = dot(col_ct, LUMA709);
+      col_ct *= luma_in / max(luma_out, 1e-5);
+      cout = clamp(col_ct, ZERO3, ONE3);
+  }
+
+  return vec4(cout, 1.0);
+}

@@ -106,7 +106,7 @@ Put shader files into: FBNEO root folder\support\shaders\
 2. Recommended
 
 ```html
-   \shaders\DirectX11\crt-ext\
+   \shaders\DirectX11\crt-ext\crt-geom-deluxe.cgp
 ```
 
 3. Other Directx 11 shader file

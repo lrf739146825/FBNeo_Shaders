@@ -1,0 +1,30 @@
+//File crt-geom-deluxe.cgp
+
+shaders = 3
+
+shader0        = passes/gaussx.cg
+filter_linear0 = true
+
+shader1        = passes/gaussy.cg
+filter_linear1 = true
+
+shader2        = passes/crt-geom-deluxe.cg
+filter_linear2 = true
+scale_type2    = viewport
+
+parameters = "mask_type;aperture_strength;aperture_brightboost;CRTgamma;halation;width;curvature;R;d;angle_x;angle_y;cornersize;cornersmooth;overscan_x;overscan_y;monitorgamma;aspect_x;aspect_y;scanline_weight;geom_lum;interlace_detect;phosphor_power;phosphor_amplitude;saturation;NTSCintensity;BLK;EXPOSURE;CT;motion_blur;pixel_glow"
+
+aperture_strength    = "0.400000"
+aperture_brightboost = "0.400000"
+CRTgamma             = "2.40"
+phosphor_power       = "2.200000"
+width                = "0.500000"
+scanline_weight      = "0.300000"
+geom_lum             = "0.850000"
+phosphor_amplitude   = "0.0200000"
+saturation           = "1.00"
+NTSCintensity        = "0.80"
+BLK                  = "1.00"
+CT                   = "1000.0000"
+motion_blur          = "0.000000"
+pixel_glow           = "0.300000"

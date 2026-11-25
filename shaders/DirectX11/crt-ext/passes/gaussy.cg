@@ -1,0 +1,91 @@
+//File gaussy.cg
+
+// Vertical gaussian blur, 9-tap; decal = this pass's input.
+
+#pragma parameter width    "Halation blur width" 2.0  0.1 4.0 0.1
+#pragma parameter aspect_x "Aspect ratio X"      1.0  0.3 1.0 0.01
+#pragma parameter aspect_y "Aspect ratio Y"      0.75 0.3 1.0 0.01
+#pragma parameter CRTgamma "Gamma of simulated CRT" 2.4 0.7 4.0 0.05
+
+uniform float width    = 2.0;
+uniform float aspect_x = 1.0;
+uniform float aspect_y = 0.75;
+uniform float CRTgamma = 2.4;
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float  frame_count;
+  float  frame_direction;
+};
+
+struct out_vertex
+{
+  float4 position : POSITION;
+  float4 color    : COLOR;
+  float2 texCoord : TEXCOORD0;
+};
+
+sampler2D decal : TEXUNIT0;
+
+out_vertex main_vertex
+(
+  float4 position : POSITION,
+  float4 color    : COLOR,
+  float2 texCoord : TEXCOORD0,
+  uniform float4x4 modelViewProj
+)
+{
+  out_vertex OUT;
+  OUT.position = mul(modelViewProj, position);
+  OUT.color    = color;
+  OUT.texCoord = texCoord;
+  return OUT;
+}
+
+float3 TEX2D(float2 uv, float2 tex_ratio)
+{
+  float3 c = tex2D(decal, float2(uv.x * tex_ratio.x, uv.y * tex_ratio.y)).rgb;
+  return float3(pow(c.r, CRTgamma), pow(c.g, CRTgamma), pow(c.b, CRTgamma));
+}
+
+float4 main_fragment
+(
+  in out_vertex VAR,
+  uniform input IN
+) : COLOR
+{
+  float2 tex_ratio = float2(IN.video_size.x / IN.texture_size.x,
+                            IN.video_size.y / IN.texture_size.y);
+  float2 uv01 = float2(VAR.texCoord.x / tex_ratio.x, VAR.texCoord.y / tex_ratio.y);
+
+  // wid: blur radius in source texels, measured along THIS pass's axis (y).
+  // gaussy blurs vertically, so the radius must follow the vertical
+  // resolution -- matching gaussx, which blurs horizontally and uses the
+  // horizontal resolution. Using the wrong axis would make the two passes
+  // produce an anisotropic (elliptical) halation blur on non-4:3 sources.
+  float wid = width * IN.video_size.y / (320.0 * aspect_y);
+  float k   = 1.0 / wid / wid;
+  float4 coeffs = float4(exp(-1.0 * k), exp(-4.0 * k), exp(-9.0 * k), exp(-16.0 * k));
+
+  // one source texel, in 0..1 image coordinates
+  float oney = 1.0 / IN.video_size.y;
+
+  float3 sum = float3(0.0, 0.0, 0.0);
+  sum += TEX2D(float2(uv01.x, uv01.y - 4.0 * oney), tex_ratio) * coeffs.w;
+  sum += TEX2D(float2(uv01.x, uv01.y - 3.0 * oney), tex_ratio) * coeffs.z;
+  sum += TEX2D(float2(uv01.x, uv01.y - 2.0 * oney), tex_ratio) * coeffs.y;
+  sum += TEX2D(float2(uv01.x, uv01.y - 1.0 * oney), tex_ratio) * coeffs.x;
+  sum += TEX2D(uv01, tex_ratio);
+  sum += TEX2D(float2(uv01.x, uv01.y + 1.0 * oney), tex_ratio) * coeffs.x;
+  sum += TEX2D(float2(uv01.x, uv01.y + 2.0 * oney), tex_ratio) * coeffs.y;
+  sum += TEX2D(float2(uv01.x, uv01.y + 3.0 * oney), tex_ratio) * coeffs.z;
+  sum += TEX2D(float2(uv01.x, uv01.y + 4.0 * oney), tex_ratio) * coeffs.w;
+
+  float norm = 1.0 / (1.0 + 2.0 * (coeffs.x + coeffs.y + coeffs.z + coeffs.w));
+
+  float3 col = sum * norm;
+  return float4(pow(col.r, 1.0 / CRTgamma), pow(col.g, 1.0 / CRTgamma), pow(col.b, 1.0 / CRTgamma), 1.0);
+}
