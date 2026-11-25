@@ -1,0 +1,122 @@
+
+#pragma parameter GAMMA "Gamma Emulated" 2.2 1.0 4.0 0.1
+
+uniform float GAMMA = 2.2;
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+};
+
+struct prev
+{
+    float2 tex_coord;
+    uniform float2 video_size;
+    uniform float2 texture_size;
+    uniform sampler2D texture;
+};
+
+struct out_vertex
+{
+    float4 position : POSITION;
+    float4 color    : COLOR;
+    float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex
+(
+    float4 position : POSITION,
+    float4 color    : COLOR,
+    float2 texCoord : TEXCOORD0,
+    uniform float4x4 modelViewProj
+)
+{
+    out_vertex OUT;
+    OUT.position = mul(modelViewProj, position);
+    OUT.color    = color;
+    OUT.texCoord = texCoord;
+    return OUT;
+}
+
+/* 2x2 bilinear-style fetch with gamma, texel-centre aligned. */
+float3 fetch_bc(sampler2D src, float2 uv, float4 sz, float2 ratio)
+{
+    float dx = uv.x * sz.x - 0.5;
+    float dy = uv.y * sz.y - 0.5;
+    float fx = dx - floor(dx);
+    float fy = dy - floor(dy);
+
+    float tx0 = (floor(dx) + 0.5) * sz.z;
+    float tx1 = tx0 + sz.z;
+    float ty0 = (floor(dy) + 0.5) * sz.w;
+    float ty1 = ty0 + sz.w;
+
+    float3 c00 = pow(tex2D(src, float2(tx0 * ratio.x, ty0 * ratio.y)).rgb, float3(GAMMA, GAMMA, GAMMA));
+    float3 c10 = pow(tex2D(src, float2(tx1 * ratio.x, ty0 * ratio.y)).rgb, float3(GAMMA, GAMMA, GAMMA));
+    float3 c01 = pow(tex2D(src, float2(tx0 * ratio.x, ty1 * ratio.y)).rgb, float3(GAMMA, GAMMA, GAMMA));
+    float3 c11 = pow(tex2D(src, float2(tx1 * ratio.x, ty1 * ratio.y)).rgb, float3(GAMMA, GAMMA, GAMMA));
+
+    float3 cx0 = lerp(c00, c10, fx);
+    float3 cx1 = lerp(c01, c11, fx);
+    return lerp(cx0, cx1, fy);
+}
+
+float4 main_fragment
+(
+    in out_vertex VAR,
+    uniform input IN,
+    prev ColorAdj
+) : COLOR
+{
+    float video_w = IN.video_size.x;
+    float video_h = IN.video_size.y;
+    float out_w   = IN.output_size.x;
+    float out_h   = IN.output_size.y;
+
+    float r_x = video_w / IN.texture_size.x;
+    float r_y = video_h / IN.texture_size.y;
+
+    float u = VAR.texCoord.x / r_x;
+    float v = VAR.texCoord.y / r_y;
+
+    float ca_w  = ColorAdj.video_size.x;
+    float ca_h  = ColorAdj.video_size.y;
+    float ca_r_x = ca_w / ColorAdj.texture_size.x;
+    float ca_r_y = ca_h / ColorAdj.texture_size.y;
+    float4 caSz = float4(ca_w, ca_h, 1.0 / ca_w, 1.0 / ca_h);
+    float2 caR  = float2(ca_r_x, ca_r_y);
+
+    // radial radius: scaled by distance from centre
+    float fx = (u - 0.5) * 1.0527;
+    float fy = v - 0.5;
+    float gStep = (1.0 / out_w) * (video_h / video_w) * 1.6;
+    gStep *= 1.0 + (fx * fx + fy * fy) * 0.5;
+    float fCx = fx + 0.5;
+    float fCy = fy + 0.5;
+    float2 fCenter = float2(fCx, fCy);
+
+    float es[5];
+    es[0] = 0.218663;
+    es[1] = 0.188942;
+    es[2] = 0.121895;
+    es[3] = 0.058715;
+    es[4] = 0.021117;
+
+    float3 h = fetch_bc(ColorAdj.texture, fCenter, caSz, caR) * es[0];
+
+    [unroll] for (int i = 1; i < 5; ++i)
+    {
+        float off = float(i) * gStep;
+        float2 uvP = float2(fCx + off, fCy);
+        float2 uvN = float2(fCx - off, fCy);
+        h += fetch_bc(ColorAdj.texture, uvP, caSz, caR) * es[i];
+        h += fetch_bc(ColorAdj.texture, uvN, caSz, caR) * es[i];
+    }
+
+    float3 outCol = sqrt(clamp(h, 0.0, 1.0));
+    return float4(outCol.x, outCol.y, outCol.z, 1.0);
+}

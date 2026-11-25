@@ -1,0 +1,238 @@
+/*
+    Phosphor Dot shader v3.3 by Roc-Y.
+    This shader reshade pixels to round dots, the diameter of dot change
+    according pixel bright level.
+    This will make low defination content looks cleaner but less sawtooth,just
+    like CRT moniter. Using in retro games are adviced.
+
+    Jan 2024.
+    Copyright (C) 2022-2023 Roc-Y - rocky02009@163.com
+*/
+
+#pragma parameter DOT_GAMMA "Gamma Emulated" 2.2 1.0 4.0 0.1
+#pragma parameter LINEAR_X "Linear Filter(X) [-0.10=CRT-Mode]" 0.0 -0.1 1.0 0.1
+#pragma parameter LINEAR_Y "Linear Filter(Y)" 0.0 0.0 1.0 0.1
+#pragma parameter MT_SAMPLE "Dot Sampler Mode[0=Center(slower) 1=Multiple]" 1.0 0.0 1.0 1.0
+#pragma parameter PIC_SCALE_X "Picture Scale(X)" 1.0 -10.0 10.0 0.01
+#pragma parameter PIC_SCALE_Y "Picture Scale(Y)" 1.0 -10.0 10.0 0.01
+#pragma parameter DOT_PITCH_X "Dot Pitch(X) [<1:turn off integer scaling]" 1.0 0.0 10.0 0.1
+#pragma parameter DOT_PITCH_Y "Dot Pitch(Y) [<1:turn off integer scaling]" 1.0 0.1 10.0 0.1
+#pragma parameter DOT_SCALE_X "Dot Scale(X)" 1.0 0.1 2.0 0.05
+#pragma parameter DOT_SCALE_Y "Dot Scale(Y)" 1.0 0.1 2.0 0.05
+#pragma parameter DOT_OPACITY "Dot Opacity" 1.0 0.0 1.0 0.05
+#pragma parameter DOT_BLOOM "Dot Bloom" 0.0 0.0 2.0 0.05
+#pragma parameter CURVE_X "CRT Curvature(X) [slower]" 0.0 0.0 1.0 0.01
+#pragma parameter CURVE_Y "CRT Curvature(Y) [slower]" 0.0 0.0 1.0 0.01
+
+uniform float DOT_GAMMA   = 2.2;
+uniform float LINEAR_X    = 0.0;
+uniform float LINEAR_Y    = 0.0;
+uniform float MT_SAMPLE   = 1.0;
+uniform float PIC_SCALE_X = 1.0;
+uniform float PIC_SCALE_Y = 1.0;
+uniform float DOT_PITCH_X = 1.0;
+uniform float DOT_PITCH_Y = 1.0;
+uniform float DOT_SCALE_X = 1.0;
+uniform float DOT_SCALE_Y = 1.0;
+uniform float DOT_OPACITY = 1.0;
+uniform float DOT_BLOOM   = 0.0;
+uniform float CURVE_X     = 0.0;
+uniform float CURVE_Y     = 0.0;
+
+#define SCREEN_GAMMA 2.2
+#define HALFTONE_STRENGTH 0.7
+
+struct orig
+{
+    float2 tex_coord;
+    uniform float2 video_size;
+    uniform float2 texture_size;
+    uniform float2 output_size;
+    uniform sampler2D texture;
+};
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+};
+
+struct out_vertex
+{
+    float4 position : POSITION;
+    float4 color    : COLOR;
+    float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex
+(
+    float4 position : POSITION,
+    float4 color    : COLOR,
+    float2 texCoord : TEXCOORD0,
+    uniform float4x4 modelViewProj
+)
+{
+    out_vertex OUT;
+    OUT.position = mul(modelViewProj, position);
+    OUT.color    = color;
+    OUT.texCoord = texCoord;
+    return OUT;
+}
+
+/* GLSL "mod" (result has the sign of the divisor). */
+float2 glsl_mod(float2 x, float2 y)
+{
+    return x - y * floor(x / y);
+}
+
+float luma(float3 col)
+{
+    return col.r * 0.3 + col.g * 0.6 + col.b * 0.1;
+}
+
+/* Variable bilinear vTexCoord offset function */
+float3 texture_blur(sampler2D src, float2 uv, float4 tsz, float2 blur)
+{
+    float2 pix_co = uv * tsz.xy;
+    pix_co = clamp(frac(pix_co + blur * 0.5) / (blur + 0.000001), 0.0, 1.0) + floor(pix_co + blur * 0.5) - 0.5;
+    return tex2D(src, pix_co * tsz.zw).rgb;
+}
+
+/* Curve CRT */
+float2 curve_x(float2 uv)
+{
+    if (CURVE_X < 0.005 && CURVE_Y < 0.005)
+        return uv;
+    else
+    {
+        float2 r = 1.0 / clamp(float2(CURVE_X * 2.0, CURVE_Y), 0.01, 1.0);
+        float2 uv2 = (uv - 0.50001) * 2.0;
+        uv2 /= sin(uv2 / r) / sin(1.0 / r) / uv2;
+        float2 depth = r - cos(uv2 / r) * r;
+        uv2 /= (1.0 - depth.yx * 0.3);
+        uv2 = uv2 / 2.0 + 0.50001;
+        return float2(uv2.x, uv.y);
+    }
+}
+
+/* sRGB LtoV */
+float LtoV(float l)
+{
+    return l < 0.00313 ? l * 12.9232102 : 1.055 * pow(l, 0.4166) - 0.055;
+}
+
+float3 LtoV3(float3 c)
+{
+    c.r = LtoV(c.r);
+    c.g = LtoV(c.g);
+    c.b = LtoV(c.b);
+    return c;
+}
+
+float4 main_fragment
+(
+    in out_vertex VAR,
+    uniform sampler2D decal : TEXUNIT0,
+    uniform input IN,
+    orig ORIG
+) : COLOR
+{
+    float2 vTexCoord = VAR.texCoord;
+
+    float4 SourceSize   = float4(IN.video_size,   1.0 / IN.video_size);
+    float4 TextureSize4 = float4(IN.texture_size, 1.0 / IN.texture_size);
+    float4 OriginalSize = float4(ORIG.video_size, 1.0 / ORIG.video_size);
+    float4 OutputSize4  = float4(IN.output_size,  1.0 / IN.output_size);
+
+    float2 uv_ratio = IN.video_size / IN.texture_size;   // texture coordinates run 0 .. uv_ratio
+
+    // Scaling factor
+    float2 scale0 = max(OutputSize4.xy * OriginalSize.zw * float2(PIC_SCALE_X, PIC_SCALE_Y), 1.0);
+    if (DOT_PITCH_X > 0.999) scale0.x = floor(scale0.x + 0.05);
+    if (DOT_PITCH_Y > 0.999) scale0.y = floor(scale0.y + 0.05);
+    float2 PSSF = SourceSize.xy / ORIG.video_size;   // Pre-shader scale factor
+    float2 scale = scale0 / PSSF;                    // scale factor offseted according previous shader passes
+
+    // Color sampling
+    float2 pix_co = vTexCoord * TextureSize4.xy / IN.video_size * OutputSize4.xy;
+    pix_co += floor((SourceSize.xy * scale - OutputSize4.xy) / 2.0 + 0.5);   // Center the graphic
+    float2 uv = curve_x(pix_co / scale / SourceSize.xy) * uv_ratio;
+
+    float uv_offset_x = 0.0;
+    float2 Linear = float2(LINEAR_X, LINEAR_Y);
+    if (LINEAR_X < -0.05)
+    {
+        // CRT horizontal filter
+        float EBW = (OriginalSize.w * DOT_SCALE_Y * OutputSize4.y * PIC_SCALE_Y * OutputSize4.z / PIC_SCALE_X);   // electron beam width
+        if (SourceSize.x * OriginalSize.z < 2.0)   // when no pre-upscale shader
+            Linear.x = EBW * OriginalSize.x * 0.9;
+        else
+        {
+            float3 col_l = texture_blur(decal, uv - float2(TextureSize4.z * PSSF.x * 0.45, 0.0), TextureSize4, float2(0.0));
+            float3 col_r = texture_blur(decal, uv + float2(TextureSize4.z * PSSF.x * 0.45, 0.0), TextureSize4, float2(0.0));
+            float luma_diff = luma(col_l) - luma(col_r);
+            uv_offset_x = luma_diff * EBW * 0.1;   // image-normalised offset
+            Linear.x = 1.0;
+        }
+    }
+
+    float3 texColor = texture_blur(decal, uv - float2(uv_offset_x * uv_ratio.x, 0.0), TextureSize4, Linear);
+
+    // Dot size
+    float2 dot_size = floor(scale0 * float2(DOT_PITCH_X, DOT_PITCH_Y) + 0.5);
+    if (dot_size.x < 1.5) dot_size.x = DOT_PITCH_X > 0.001 ? 2.0 : 1.0;
+    if (dot_size.y < 0.5) dot_size.y = 1.0;
+
+    float3 col1;
+    if (MT_SAMPLE == 1.0)
+        col1 = texColor;
+    else
+    {
+        float2 pc = floor(pix_co / dot_size) * dot_size + dot_size * 0.5;
+        col1 = texture_blur(decal, curve_x(pc / scale / SourceSize.xy) * uv_ratio - float2(uv_offset_x * uv_ratio.x, 0.0), TextureSize4, Linear);
+    }
+    col1 = sqrt(col1);
+
+    float3 dot_radius_x = (col1 * HALFTONE_STRENGTH + 1.0 - HALFTONE_STRENGTH) * dot_size.x / 2.0;
+    dot_radius_x *= DOT_SCALE_X;
+
+    float dot_ratio = (dot_size.x * DOT_SCALE_X) / (dot_size.y * DOT_SCALE_Y);
+
+    float2 center_offset = float2(0.0, 0.0);
+    if (dot_size.x > 2.5) center_offset.x = dot_size.x * 0.5;
+    else
+    {
+        dot_radius_x *= 2.0;
+        dot_ratio *= 2.0;
+    }
+    if (dot_size.y > 2.5) center_offset.y = dot_size.y * 0.5;
+    else dot_ratio *= 0.5;
+
+    float2 pix_co_sub = glsl_mod(pix_co, dot_size) - center_offset;
+    pix_co_sub.y *= dot_ratio;
+
+    float dist = length(pix_co_sub);
+
+    float coef;
+    float3 col2;
+
+    if (dist > 0.1)
+    {
+        float2 s_pcs = pix_co_sub * pix_co_sub;
+        float s_dr = dot_ratio * dot_ratio;
+        coef = sqrt((s_pcs.x * s_dr * s_dr + s_pcs.y * s_dr) / (s_pcs.x * s_dr * s_dr + s_pcs.y));   // The original equation written in my paper notebook.
+        col2 = clamp((dot_radius_x - dist + 0.5 * coef) / coef, 0.0, 1.0);
+    }
+    else
+        col2 = clamp((dot_radius_x * 2.0 - clamp(dot_radius_x * 2.0 - dot_ratio, 0.0, 1.0)) * 2.0 * dot_radius_x / dot_ratio, 0.0, 1.0);
+
+    col2 *= pow(col1 / (col1 * HALFTONE_STRENGTH + 1.0 - HALFTONE_STRENGTH), float3(2.0));
+
+    // Final mix
+    float3 outc = lerp(texColor, col2, DOT_OPACITY) + texColor * DOT_BLOOM;
+    outc = LtoV3(outc);
+    return float4(outc, 1.0);
+}

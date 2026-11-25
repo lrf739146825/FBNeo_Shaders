@@ -1,0 +1,209 @@
+
+#pragma parameter PIC_SCALE_X "Picture Scale(X)" 1.0 -10.0 10.0 0.01
+#pragma parameter PIC_SCALE_Y "Picture Scale(Y)" 1.0 -10.0 10.0 0.01
+#pragma parameter DOT_PITCH_X "Dot Pitch(X) [<1:turn off integer scaling]" 1.0 0.0 10.0 0.1
+#pragma parameter DOT_PITCH_Y "Dot Pitch(Y) [<1:turn off integer scaling]" 1.0 0.1 10.0 0.1
+#pragma parameter CURVE_X "CRT Curvature(X) [slower]" 0.0 0.0 1.0 0.01
+#pragma parameter CURVE_Y "CRT Curvature(Y) [slower]" 0.0 0.0 1.0 0.01
+#pragma parameter unalign "RGB Offset" 0.0 -1.0 1.0 0.1
+#pragma parameter STRETCH_X "Stretch to Fullscreen(X) [slower if it works]" 1.0 0.0 2.0 0.1
+#pragma parameter STRETCH_Y "Stretch to Fullscreen(Y) [slower if it works]" 1.0 0.0 2.0 0.1
+
+uniform float PIC_SCALE_X = 1.0;
+uniform float PIC_SCALE_Y = 1.0;
+uniform float DOT_PITCH_X = 1.0;
+uniform float DOT_PITCH_Y = 1.0;
+uniform float CURVE_X     = 0.0;
+uniform float CURVE_Y     = 0.0;
+uniform float unalign     = 0.0;
+uniform float STRETCH_X   = 1.0;
+uniform float STRETCH_Y   = 1.0;
+
+#define SCREEN_GAMMA 2.2
+
+struct orig
+{
+    float2 tex_coord;
+    uniform float2 video_size;
+    uniform float2 texture_size;
+    uniform sampler2D texture;
+};
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+};
+
+struct out_vertex
+{
+    float4 position : POSITION;
+    float4 color    : COLOR;
+    float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex
+(
+    float4 position : POSITION,
+    float4 color    : COLOR,
+    float2 texCoord : TEXCOORD0,
+    uniform float4x4 modelViewProj
+)
+{
+    out_vertex OUT;
+    OUT.position = mul(modelViewProj, position);
+    OUT.color    = color;
+    OUT.texCoord = texCoord;
+    return OUT;
+}
+
+float4 cubic(float x)
+{
+    float x2 = x * x;
+    float x3 = x2 * x;
+    float4 w;
+    w.x =  3.0 * x2 - x3 - 3.0 * x + 1.0;
+    w.y =  3.0 * x3 - 6.0 * x2 + 4.0;
+    w.z =  3.0 * x2 - 3.0 * x3 + 3.0 * x + 1.0;
+    w.w =  x3;
+    return w / 6.0;
+}
+
+float3 texture_bicubic(sampler2D src, float2 texcoord, float2 texscale, float offset_pixco)
+{
+    texcoord -= 0.5;   // This cubic filter assumes integer coordinates as the center of the output pixel
+    float fx = frac(texcoord.x);
+    float fy = frac(texcoord.y);
+    texcoord.x -= fx;
+    texcoord.y -= fy;
+
+    float4 xcubic = cubic(fx);
+    float4 ycubic = cubic(fy);
+
+    float4 c = float4(texcoord.x - 0.5, texcoord.x + 1.5, texcoord.y - 0.5, texcoord.y + 1.5);
+    float4 s = float4(xcubic.x + xcubic.y, xcubic.z + xcubic.w, ycubic.x + ycubic.y, ycubic.z + ycubic.w);
+    float4 offset = c + float4(xcubic.y, xcubic.w, ycubic.y, ycubic.w) / s;
+
+    float3 sample0;
+    sample0.r = tex2D(src, float2(offset.x + offset_pixco, offset.z) * texscale).r;
+    sample0.g = tex2D(src, float2(offset.x,                offset.z) * texscale).g;
+    sample0.b = tex2D(src, float2(offset.x - offset_pixco, offset.z) * texscale).b;
+    float3 sample1;
+    sample1.r = tex2D(src, float2(offset.y + offset_pixco, offset.z) * texscale).r;
+    sample1.g = tex2D(src, float2(offset.y,                offset.z) * texscale).g;
+    sample1.b = tex2D(src, float2(offset.y - offset_pixco, offset.z) * texscale).b;
+    float3 sample2;
+    sample2.r = tex2D(src, float2(offset.x + offset_pixco, offset.w) * texscale).r;
+    sample2.g = tex2D(src, float2(offset.x,                offset.w) * texscale).g;
+    sample2.b = tex2D(src, float2(offset.x - offset_pixco, offset.w) * texscale).b;
+    float3 sample3;
+    sample3.r = tex2D(src, float2(offset.y + offset_pixco, offset.w) * texscale).r;
+    sample3.g = tex2D(src, float2(offset.y,                offset.w) * texscale).g;
+    sample3.b = tex2D(src, float2(offset.y - offset_pixco, offset.w) * texscale).b;
+
+    float sx = s.x / (s.x + s.y);
+    float sy = s.z / (s.z + s.w);
+
+    return lerp(
+        lerp(sample3, sample2, sx),
+        lerp(sample1, sample0, sx), sy);
+}
+
+float3 texture_cubic_y(sampler2D src, float2 texcoord, float2 texscale, float offset_pixco)
+{
+    texcoord.y -= 0.5;   // This cubic filter assumes integer coordinates as the center of the output pixel
+    float fy = frac(texcoord.y);
+    texcoord.y -= fy;
+
+    float4 ycubic = cubic(fy);
+
+    float2 c = float2(texcoord.y - 0.5, texcoord.y + 1.5);
+    float2 s = float2(ycubic.x + ycubic.y, ycubic.z + ycubic.w);
+    float2 offset = c + float2(ycubic.y, ycubic.w) / s;
+
+    float3 sample0;
+    sample0.r = tex2D(src, float2(texcoord.x + offset_pixco, offset.x) * texscale).r;
+    sample0.g = tex2D(src, float2(texcoord.x,                offset.x) * texscale).g;
+    sample0.b = tex2D(src, float2(texcoord.x - offset_pixco, offset.x) * texscale).b;
+    float3 sample1;
+    sample1.r = tex2D(src, float2(texcoord.x + offset_pixco, offset.y) * texscale).r;
+    sample1.g = tex2D(src, float2(texcoord.x,                offset.y) * texscale).g;
+    sample1.b = tex2D(src, float2(texcoord.x - offset_pixco, offset.y) * texscale).b;
+
+    float sy = s.x / (s.x + s.y);
+
+    return lerp(sample1, sample0, sy);
+}
+
+float2 curve_y(float2 uv)
+{
+    if (CURVE_X < 0.005 && CURVE_Y < 0.005)
+        return uv;
+    else
+    {
+        float2 r = 1.0 / clamp(float2(CURVE_X * 2.0, CURVE_Y), 0.01, 1.0);
+        float2 uv2 = (uv - 0.50001) * 2.0;
+        uv2 /= sin(uv2 / r) / sin(1.0 / r) / uv2;
+        float2 depth = r - cos(uv2 / r) * r;
+        uv2 /= (1.0 - depth.yx * 0.3);
+        uv2 = uv2 / 2.0 + 0.50001;
+        return float2(uv.x, uv2.y);
+    }
+}
+
+float4 main_fragment
+(
+    in out_vertex VAR,
+    uniform sampler2D decal : TEXUNIT0,
+    uniform input IN,
+    orig ORIG
+) : COLOR
+{
+    float2 vTexCoord = VAR.texCoord;
+
+    float4 SourceSize   = float4(IN.video_size,   1.0 / IN.video_size);
+    float4 OriginalSize = float4(ORIG.video_size, 1.0 / ORIG.video_size);
+    float4 OutputSize   = SourceSize;   // GLSL: #define OutputSize SourceSize
+
+    float2 uv_ratio = IN.video_size / IN.texture_size;
+
+    // Scaling factor
+    float2 scale0 = max(OutputSize.xy * OriginalSize.zw * float2(PIC_SCALE_X, PIC_SCALE_Y), 1.0);
+    if (DOT_PITCH_X > 0.999) scale0.x = floor(scale0.x + 0.05);
+    if (DOT_PITCH_Y > 0.999) scale0.y = floor(scale0.y + 0.05);
+
+    // RGB Offset
+    float offset_coef = ORIG.video_size.x < 480.0 ? 1.0 : 2.0;
+    float offset_pixco = scale0.x * 0.333 * clamp(unalign * offset_coef, -1.0, 1.0);
+    offset_pixco = floor(offset_pixco + 0.5);
+
+    float2 stretch_ratio;
+    stretch_ratio = clamp(scale0 / (OutputSize.xy / ORIG.video_size), 0.0, 1.0);
+
+    #define TH 0.95
+    if (((stretch_ratio.x > TH || STRETCH_X < 0.001) && (stretch_ratio.y > TH || STRETCH_Y < 0.001) && CURVE_Y < 0.01 && CURVE_X < 0.01) || scale0.y == 2.0)
+    {
+        float4 outc;
+        outc.r = tex2D(decal, vTexCoord + float2(+SourceSize.z * uv_ratio.x * offset_pixco, 0.0)).r;
+        outc.g = tex2D(decal, vTexCoord).g;
+        outc.b = tex2D(decal, vTexCoord + float2(-SourceSize.z * uv_ratio.x * offset_pixco, 0.0)).b;
+        outc.a = 1.0;
+        return outc;
+    }
+    else
+    {
+        stretch_ratio = (stretch_ratio - 1.0) * float2(STRETCH_X, STRETCH_Y) + 1.0;
+        float2 texcoord = curve_y(vTexCoord / uv_ratio) * OutputSize.xy * stretch_ratio;
+        texcoord += floor(OutputSize.xy * (1.0 - stretch_ratio) / 2.0 + 0.5);
+
+        float3 outc;
+        if (stretch_ratio.x > TH || STRETCH_X < 0.001)
+            outc = texture_cubic_y(decal, texcoord, uv_ratio / OutputSize.xy, offset_pixco);
+        else
+            outc = texture_bicubic(decal, texcoord, uv_ratio / OutputSize.xy, offset_pixco);
+        return float4(outc, 1.0);
+    }
+}

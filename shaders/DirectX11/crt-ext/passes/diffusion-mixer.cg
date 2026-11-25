@@ -1,0 +1,178 @@
+
+#define SCREEN_GAMMA 2.2
+#define HALFTONE_STRENGTH 0.0
+
+#pragma parameter DOT_GAMMA "Gamma Emulated" 2.2 1.0 4.0 0.1
+#pragma parameter PIC_SCALE_X "Picture Scale(X)" 1.0 -10.0 10.0 0.01
+#pragma parameter PIC_SCALE_Y "Picture Scale(Y)" 1.0 -10.0 10.0 0.01
+#pragma parameter DOT_PITCH_X "Dot Pitch(X) [<1:turn off integer scaling]" 1.0 0.0 10.0 0.1
+#pragma parameter DOT_PITCH_Y "Dot Pitch(Y) [<1:turn off integer scaling]" 1.0 0.1 10.0 0.1
+#pragma parameter CURVE_X "CRT Curvature(X) [slower]" 0.0 0.0 1.0 0.01
+#pragma parameter CURVE_Y "CRT Curvature(Y) [slower]" 0.0 0.0 1.0 0.01
+#pragma parameter DIFFUSION "CRT Diffusion [slower]" 0.5 0.0 2.0 0.05
+
+uniform float DOT_GAMMA   = 2.2;
+uniform float PIC_SCALE_X = 1.0;
+uniform float PIC_SCALE_Y = 1.0;
+uniform float DOT_PITCH_X = 1.0;
+uniform float DOT_PITCH_Y = 1.0;
+uniform float CURVE_X     = 0.0;
+uniform float CURVE_Y     = 0.0;
+uniform float DIFFUSION   = 0.5;
+
+/* The original chain input (GLSL "OriginalSize"). */
+struct orig
+{
+    uniform float2 video_size;
+    uniform float2 texture_size;
+};
+
+/* The output of the pass two steps back (GLSL "PassPrev2*"). */
+struct prev
+{
+    float2 tex_coord;
+    uniform float2 video_size;
+    uniform float2 texture_size;
+    uniform sampler2D texture;
+};
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+};
+
+struct out_vertex
+{
+    float4 position  : POSITION;
+    float4 color     : COLOR;
+    float2 texCoord  : TEXCOORD0;
+    float2 prevCoord : TEXCOORD1;
+};
+
+out_vertex main_vertex
+(
+    float4 position : POSITION,
+    float4 color    : COLOR,
+    float2 texCoord : TEXCOORD0,
+    uniform float4x4 modelViewProj,
+    prev PASSPREV2
+)
+{
+    out_vertex OUT;
+    OUT.position  = mul(modelViewProj, position);
+    OUT.color     = color;
+    OUT.texCoord  = texCoord;                // = GLSL TexCoord
+    OUT.prevCoord = PASSPREV2.tex_coord;     // = GLSL PassPrev2TexCoord
+    return OUT;
+}
+
+/* GLSL "mod" (result has the sign of the divisor). */
+float2 glsl_mod(float2 x, float2 y)
+{
+    return x - y * floor(x / y);
+}
+
+float2 curve_x(float2 uv)
+{
+    if (CURVE_X < 0.005 && CURVE_Y < 0.005)
+        return uv;
+    else
+    {
+        float2 r = 1.0 / clamp(float2(CURVE_X * 2.0, CURVE_Y), 0.01, 1.0);
+        float2 uv2 = (uv - 0.50001) * 2.0;
+        uv2 /= sin(uv2 / r) / sin(1.0 / r) / uv2;
+        float2 depth = r - cos(uv2 / r) * r;
+        uv2 /= (1.0 - depth.yx * 0.3);
+        uv2 = uv2 / 2.0 + 0.50001;
+        return float2(uv2.x, uv.y);
+    }
+}
+
+float4 main_fragment
+(
+    in out_vertex VAR,
+    uniform sampler2D decal : TEXUNIT0,
+    uniform input IN,
+    orig ORIG,
+    prev PASSPREV2
+) : COLOR
+{
+    if (DIFFUSION > 0.01)
+    {
+        float2 vTexCoord    = VAR.texCoord;
+        float2 secondaryCrd = VAR.prevCoord;      // GLSL: TEX2 = PassPrev2TexCoord
+
+        float4 SourceSize   = float4(IN.video_size,   1.0 / IN.video_size);
+        float4 OriginalSize = float4(ORIG.video_size, 1.0 / ORIG.video_size);
+
+        float2 uv_ratio = IN.video_size / IN.texture_size;
+
+        // Scaling factor
+        float2 scale0 = max(IN.output_size * OriginalSize.zw * float2(PIC_SCALE_X, PIC_SCALE_Y), 1.0);
+        if (DOT_PITCH_X > 0.999) scale0.x = floor(scale0.x + 0.05);
+        if (DOT_PITCH_Y > 0.999) scale0.y = floor(scale0.y + 0.05);
+        float2 scale = scale0 * ORIG.video_size / SourceSize.xy;   // scale factor offseted according previous shader passes
+
+        // Color sampling
+        float2 pix_co = floor(vTexCoord / uv_ratio * IN.output_size) + 0.5;
+        pix_co += floor((SourceSize.xy * scale - IN.output_size) / 2.0 + 0.5);   // Center the graphic
+        float2 uv = pix_co / (IN.video_size * scale);
+        float3 texColor = tex2D(decal, curve_x((uv - 0.5) / 1.0526 + 0.5) * uv_ratio).rgb;
+
+        // Dot size
+        float2 dot_size = floor(scale0 * float2(DOT_PITCH_X, DOT_PITCH_Y) + 0.5);
+        if (dot_size.x < 1.5) dot_size.x = DOT_PITCH_X > 0.001 ? 2.0 : 1.0;
+        if (dot_size.y < 0.5) dot_size.y = 1.0;
+
+        // Dot shading
+        // STATEMENT: The following core algorithms are original, and anyone is
+        // prohibited from using them to obtain commercial benefits without the
+        // formal permission of the author.
+        // 声明：以下核心算法为独创，任何人未经书面允许，不得用于获取商业利益。
+        float dot_radius_x = dot_size.x * 0.207;
+        float dot_ratio = dot_size.x / dot_size.y;
+
+        float2 center_offset = float2(0.0, 0.0);
+        if (dot_size.x > 2.5) center_offset.x = dot_size.x * 0.5;
+        else
+        {
+            dot_radius_x *= 2.0;
+            dot_ratio *= 2.0;
+        }
+        if (dot_size.y > 2.5) center_offset.y = dot_size.y * 0.5;
+        else dot_ratio *= 0.5;
+
+        float2 pix_co_sub = glsl_mod(pix_co + dot_size * 0.5, dot_size) - center_offset;
+        pix_co_sub.y *= dot_ratio;
+
+        float dist = length(pix_co_sub);
+
+        float3 col2;
+        if (dist - 0.5 > dot_size.x * 0.212)
+            col2 = float3(0.0, 0.0, 0.0);
+        else
+        {
+            float2 s_pcs = pix_co_sub * pix_co_sub;
+            float s_dr = dot_ratio * dot_ratio;
+            float coef = sqrt((s_pcs.x * s_dr * s_dr + s_pcs.y * s_dr) / (s_pcs.x * s_dr * s_dr + s_pcs.y));
+            col2.x = clamp((dot_radius_x - dist + 0.5 * coef) / coef, 0.0, 1.0);   // For efficiency, RGB share the same dot shape
+            col2 = col2.x * texColor.rgb;
+        }
+
+        // Diffusion
+        uv = uv * 0.96 + 0.02;
+        float3 Diffusion = tex2D(decal, curve_x(uv) * uv_ratio).rgb;
+
+        // Mix and output resault to screen
+        float Diff = DIFFUSION * DIFFUSION;
+        float3 outc = pow(tex2D(PASSPREV2.texture, secondaryCrd).rgb, float3(SCREEN_GAMMA)) + (col2 + Diffusion) * Diff;
+        outc = pow(outc, float3(1.0 / SCREEN_GAMMA));
+        return float4(outc, 1.0);
+    }
+    else
+        return float4(tex2D(PASSPREV2.texture, VAR.prevCoord).rgb, 1.0);
+}

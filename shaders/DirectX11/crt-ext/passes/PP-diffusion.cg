@@ -1,0 +1,339 @@
+
+#pragma parameter LINE_THICKNESS "Scanline Thickness" 0.95 0.1 2.0 0.01
+#pragma parameter PIC_SCALE_X "Picture Scale(X)" 1.0 -10.0 10.0 0.01
+#pragma parameter PIC_SCALE_Y "Picture Scale(Y)" 1.0 -10.0 10.0 0.01
+#pragma parameter INT_TOL "Allow Overscan for Clarity" 0.05 0.0 0.1 0.01
+#pragma parameter INT_SCALE "Force Integer Scaling" 0.0 0.0 1.0 0.5
+#pragma parameter CURVE_X "CRT Curvature(X)" 0.0 0.0 1.0 0.01
+#pragma parameter CURVE_Y "CRT Curvature(Y)" 0.0 0.0 1.0 0.01
+#pragma parameter MASK_INTENSITY "Shadow Mask Intensity" 0.7 0.0 0.9 0.1
+#pragma parameter MASK_TYPE "Shadow Mask Type" 1.0 0.0 1.0 1.0
+#pragma parameter ff "Shadow Mask Size" 1.0 0.0 10.0 0.1
+#pragma parameter DIFFUSION "CRT Diffusion" 0.33 0.0 1.0 0.01
+#pragma parameter DIFF_OVEREXP "Allow Diffusion Overexposed" 0.5 0.0 1.0 0.05
+
+uniform float LINE_THICKNESS  = 0.95;
+uniform float PIC_SCALE_X     = 1.0;
+uniform float PIC_SCALE_Y     = 1.0;
+uniform float INT_TOL         = 0.05;
+uniform float INT_SCALE       = 0.0;
+uniform float CURVE_X         = 0.0;
+uniform float CURVE_Y         = 0.0;
+uniform float MASK_INTENSITY  = 0.7;
+uniform float MASK_TYPE       = 1.0;
+uniform float ff              = 1.0;
+uniform float DIFFUSION       = 0.33;
+uniform float DIFF_OVEREXP    = 0.5;
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+};
+
+struct orig
+{
+    float2 tex_coord;
+    uniform float2 video_size;
+    uniform float2 texture_size;
+    uniform float2 output_size;
+    uniform sampler2D texture;
+};
+
+struct prev
+{
+    float2 tex_coord;
+    uniform float2 video_size;
+    uniform float2 texture_size;
+    uniform sampler2D texture;
+};
+
+struct out_vertex
+{
+    float4 position   : POSITION;
+    float4 color      : COLOR;
+    float2 texCoord   : TEXCOORD0;
+    float4 vParameter : TEXCOORD1;
+};
+
+out_vertex main_vertex
+(
+    float4 position : POSITION,
+    float4 color    : COLOR,
+    float2 texCoord : TEXCOORD0,
+    uniform float4x4 modelViewProj,
+    orig ORIG,
+    prev PhosphorLine
+)
+{
+    out_vertex OUT;
+    OUT.position = mul(modelViewProj, position);
+    OUT.color    = color;
+    OUT.texCoord = texCoord;
+
+    float plRatio = PhosphorLine.video_size.y / ORIG.video_size.y;
+    float u = plRatio * PIC_SCALE_Y;
+    float v_small = (u <= 4.0) ? 1.0 : 0.0;
+
+    float w = floor(u * (1.0 + INT_TOL * v_small));
+    w = max(w, 1.0);
+
+    float x = w / plRatio;
+    float y = x;
+    float z = y - 1.0;
+    float zKeep = (z > 0.0 && z < INT_TOL * v_small) ? z : 0.0;
+    y = y - zKeep;
+
+    OUT.vParameter.y = y / PIC_SCALE_Y;
+
+    float as = max(w, u);
+    float maskPitch;
+    if (as < 3.0)
+        maskPitch = ceil(as * ff);
+    else
+        maskPitch = floor(as * 0.6 * ff + 0.5);
+    if (maskPitch < 2.0) maskPitch = 2.0;
+    OUT.vParameter.x = maskPitch;
+
+    if (INT_SCALE > 0.25)
+        OUT.vParameter.w = x;
+    else
+        OUT.vParameter.w = PIC_SCALE_Y * (1.0 + zKeep);
+
+    if (INT_SCALE > 0.75)
+        OUT.vParameter.z = OUT.vParameter.w;
+    else
+        OUT.vParameter.z = PIC_SCALE_X;
+
+    return OUT;
+}
+
+float4 cr_weights(float x)
+{
+    float x2 = x * x;
+    float x3 = x2 * x;
+    float w0 =  3.0*x2 - x3 - 3.0*x + 1.0;
+    float w1 =  3.0*x3 - 6.0*x2 + 4.0;
+    float w2 = -3.0*x3 + 3.0*x2 + 3.0*x + 1.0;
+    float w3 = x3;
+    float inv6 = 1.0 / 6.0;
+    return float4(w0*inv6, w1*inv6, w2*inv6, w3*inv6);
+}
+
+/* 2-row Catmull-Rom fetch over 4 texel rows, collapsed to 2 bilinear taps. */
+float3 fetch_pp(sampler2D src, float2 e, float2 d, float2 ratio)
+{
+    float ey = e.y - 0.5;
+    float fy = ey - floor(ey);
+    float row = ey - fy;     // integer texel row (unnormalised)
+
+    float4 w = cr_weights(fy);
+
+    float g0 = (row - 0.5) + w.y / (w.x + w.y);
+    float g1 = (row + 1.5) + w.w / (w.z + w.w);  // row+1 center for the second pair
+    float s0 = w.x + w.y;
+    float s1 = w.z + w.w;
+
+    float2 t0 = float2(e.x * d.x * ratio.x, g0 * d.y * ratio.y);
+    float2 t1 = float2(e.x * d.x * ratio.x, g1 * d.y * ratio.y);
+
+    float3 h = tex2D(src, t0).rgb;
+    float3 j = tex2D(src, t1).rgb;
+
+    float sy = s0 / (s0 + s1);
+    return lerp(j, h, sy);
+}
+
+/* curvature variants */
+float2 curve_k(float2 l)
+{
+    if (CURVE_X < 0.005 && CURVE_Y < 0.005)
+        return l;
+
+    float rx = 1.0 / clamp(CURVE_X * 2.0, 0.01, 1.0);
+    float ry = 1.0 / clamp(CURVE_Y, 0.01, 1.0);
+    float s1x = sin(1.0 / rx);
+    float s1y = sin(1.0 / ry);
+
+    float mx = (l.x - 0.00001) * 2.0;
+    float my = (l.y - 0.00001) * 2.0;
+
+    float tx = mx / rx;
+    float ty = my / ry;
+    float ux = mx * mx * s1x / sin(tx);
+    float uy = my * my * s1y / sin(ty);
+
+    float cy = cos(ty);
+    float o  = ry * (1.0 - cy);
+    float p  = 1.0 - o * 0.3;
+    ux /= p;
+
+    return float2(ux * 0.5 + 0.00001, l.y);
+}
+
+float2 curve_y_pp(float2 l)
+{
+    if (CURVE_X < 0.005 && CURVE_Y < 0.005)
+        return l;
+
+    float cxs = clamp(CURVE_X * 2.0, 0.01, 1.0);
+    float cys = clamp(CURVE_Y, 0.01, 1.0);
+    float s_cx = sin(cxs);
+    float s_cy = sin(cys);
+
+    float g = 0.00001;
+    float uv2x = (l.x - g) * 2.0;
+    float uv2y = (l.y - g) * 2.0;
+
+    float argx = uv2x * cxs;
+    float argy = uv2y * cys;
+    float sinc_x = (uv2x * uv2x * s_cx) / sin(argx);
+    float sinc_y = (uv2y * uv2y * s_cy) / sin(argy);
+
+    float arg2x = sinc_x * cxs;
+    float n = (1.0 / cxs) * (1.0 - cos(arg2x));
+
+    float final_uv2y = sinc_y / (1.0 - 0.3 * n);
+    float final_y = final_uv2y * 0.5 + g;
+
+    return float2(l.x, final_y);
+}
+
+float2 curve_xy_pp(float2 l)
+{
+    if (CURVE_X < 0.005 && CURVE_Y < 0.005)
+        return l;
+
+    float kx = clamp(CURVE_X * 2.0, 0.01, 1.0);
+    float ky = clamp(CURVE_Y, 0.01, 1.0);
+    float s1x = sin(kx);
+    float s1y = sin(ky);
+    float g = 0.00001;
+
+    float mx = (l.x - g) * 2.0;
+    float my = (l.y - g) * 2.0;
+
+    float argx = mx * kx;
+    float argy = my * ky;
+    float sin_ax = sin(argx); if (sin_ax == 0.0) sin_ax = 1e-5;
+    float sin_ay = sin(argy); if (sin_ay == 0.0) sin_ay = 1e-5;
+
+    float ux = (mx * mx) * s1x / sin_ax;
+    float uy = (my * my) * s1y / sin_ay;
+
+    float a2x = ux * kx;
+    float a2y = uy * ky;
+    float rx = (1.0/kx) * (1.0 - cos(a2x));
+    float ry = (1.0/ky) * (1.0 - cos(a2y));
+
+    float sss_x = 1.0 - ry * 0.3;
+    float sss_y = 1.0 - rx * 0.3;
+    ux /= sss_x;
+    uy /= sss_y;
+
+    return float2(ux*0.5 + g, uy*0.5 + g);
+}
+
+float3 glsl_mod3(float3 x, float y)
+{
+    float3 fy = floor(x / y);
+    return x - fy * y;
+}
+
+float4 main_fragment
+(
+    in out_vertex VAR,
+    uniform sampler2D decal : TEXUNIT0,
+    uniform input IN,
+    prev PhosphorLine
+) : COLOR
+{
+    float video_w = IN.video_size.x;
+    float video_h = IN.video_size.y;
+    float out_w   = IN.output_size.x;
+    float out_h   = IN.output_size.y;
+    float pl_w    = PhosphorLine.video_size.x;
+    float pl_h    = PhosphorLine.video_size.y;
+
+    float r_x = video_w / IN.texture_size.x;
+    float r_y = video_h / IN.texture_size.y;
+    float u = VAR.texCoord.x / r_x;
+    float v = VAR.texCoord.y / r_y;
+    float2 vTexCoord = float2(u, v);
+
+    float4 outSz  = float4(out_w,  out_h,  1.0/out_w,  1.0/out_h);
+    float4 plSz   = float4(pl_w,   pl_h,   1.0/pl_w,   1.0/pl_h);
+    float pl_r_x  = pl_w / PhosphorLine.texture_size.x;
+    float pl_r_y  = pl_h / PhosphorLine.texture_size.y;
+    float2 plR    = float2(pl_r_x, pl_r_y);
+
+    float4 vPar = VAR.vParameter;
+
+    float aaX = vTexCoord.x - 0.5;
+    float aaY = vTexCoord.y - 0.5;
+    float bbX = aaX;
+    float bbY = aaY;
+
+    if (INT_SCALE <= 0.25)
+    {
+        aaY = aaY * vPar.y;
+        float2 aaCurve = curve_y_pp(float2(aaX + 0.00001, aaY + 0.00001));
+        aaX = aaCurve.x - 0.00001;
+        aaY = aaCurve.y - 0.00001;
+        float2 bbCurve = curve_xy_pp(float2(bbX + 0.00001, bbY + 0.00001));
+        bbX = bbCurve.x - 0.00001;
+        bbY = bbCurve.y - 0.00001;
+    }
+    else
+    {
+        float2 bbCurve = curve_k(float2(bbX + 0.00001, bbY + 0.00001));
+        bbX = bbCurve.x - 0.00001;
+        bbY = bbCurve.y - 0.00001;
+    }
+    bbX = bbX / vPar.z;
+    bbY = bbY / vPar.w;
+
+    // Sample the phosphor-line pass via Catmull-Rom
+    float2 plUV = float2((aaX + 0.5) * plSz.x, (aaY + 0.5) * plSz.y);
+    float3 plCol = fetch_pp(PhosphorLine.texture, plUV, float2(plSz.z, plSz.w), plR);
+    float3 cc = plCol * plCol;
+
+    // Sample the diffusion pass (decal)
+    float2 ddTC = float2((bbX * 0.957 + 0.5) * r_x, (bbY * 0.957 + 0.5) * r_y);
+    float3 ddCol = tex2D(decal, ddTC).rgb;
+    float3 ddSq = ddCol * ddCol;
+
+    float ee = DIFFUSION * DIFFUSION * LINE_THICKNESS;
+    cc = cc + ddSq * ee;
+    float norm = 1.0 / (1.0 + ee * (1.0 - DIFF_OVEREXP));
+    cc = cc * norm;
+
+    // Shadow mask
+    float ffv = vPar.x;
+    float ggx = floor(vTexCoord.x * out_w) + 0.5;
+    float ggy = floor(vTexCoord.y * out_h) + 0.5;
+    float hh = floor(ffv * 0.5 + 0.1);
+    if (hh < 1.0) hh = 1.0;
+    float rowShift = floor(ggy / hh) * hh * MASK_TYPE;
+    ggx = ggx + rowShift;
+
+    float jj = floor(ffv / 2.0 + 0.5);
+    float3 gv = float3(ggx, ggx + jj, ggx);
+    float3 ii = glsl_mod3(gv, ffv);
+    float3 halfF = float3(ffv*0.5, ffv*0.5, ffv*0.5);
+    ii = (ii - halfF) * 2.0;
+    ii = float3(abs(ii.x - 0.5), abs(ii.y - 0.5), abs(ii.z - 0.5));
+
+    float3 baseL = (cc * MASK_INTENSITY + float3(1.0-MASK_INTENSITY, 1.0-MASK_INTENSITY, 1.0-MASK_INTENSITY)) * ffv;
+    float3 mm = baseL - ii + float3(0.5, 0.5, 0.5);
+    mm = clamp(mm, 0.0, 1.0);
+    float3 denom = cc * MASK_INTENSITY + float3(1.0-MASK_INTENSITY, 1.0-MASK_INTENSITY, 1.0-MASK_INTENSITY);
+    mm = mm * cc / denom;
+
+    float invG = 1.0 / 2.2;
+    float3 outCol = pow(clamp(mm, 0.0, 1.0), float3(invG, invG, invG));
+    return float4(outCol.x, outCol.y, outCol.z, 1.0);
+}

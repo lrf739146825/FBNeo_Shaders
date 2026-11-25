@@ -8,12 +8,12 @@ Non-even multiples of display scaling can lead to uneven stripes forming on the 
 Base Config
 
 <pre><code>
-FinalBurn Neo
-    |-> Video
-      |-> Stretch
-        |-> Correct aspect ratio [Recommended Used. The screen display size takes precedence, and the image may be stretched, resulting in inaccurate proportions.]
-        |-> Integer Scaling (Max size) [The screen display ratio takes precedence, and the screen resolution must meet the display requirement of being three times the game's original resolution to achieve the correct visual effect.]
-      |-> Window size (Auto)
+   FinalBurn Neo
+       |-> Video
+         |-> Stretch
+           |-> Correct aspect ratio [Recommended Used. The screen display size takes precedence, and the image may be stretched, resulting in inaccurate proportions.]
+           |-> Integer Scaling (Max size) [The screen display ratio takes precedence, and the screen resolution must meet the display requirement of being three times the game's original resolution to achieve the correct visual effect.]
+         |-> Window size (Auto)
 </code></pre>
 
 <hr>
@@ -21,14 +21,14 @@ FinalBurn Neo
 ### "Experimental" Mode ###
 
 <pre><code>
-FinalBurn Neo
-    |-> Video
-      |-> Select Blitter
-        |-> Experimental
-      |-> Blitter optionns
-        |-> Enable Linear filtering
-        |-> Enable Scanlines
-        |-> Set scanlines intensity (220)
+   FinalBurn Neo
+       |-> Video
+         |-> Select Blitter
+           |-> Experimental
+         |-> Blitter optionns
+           |-> Enable Linear filtering
+           |-> Enable Scanlines
+           |-> Set scanlines intensity (220)
 </code></pre>
 
 <hr>
@@ -36,22 +36,22 @@ FinalBurn Neo
 ### "DirectX9 Alt" Mode ###
 
 ```html
-Put shader files into: FBNEO root folder\support\shaders\
+   Put shader files into: FBNEO root folder\support\shaders\
 ```
 
 1. Base Config
 
 ```html
-FinalBurn Neo
-    |-> Video
-      |-> Select Blitter
-        |-> DirectX9 Alt
-      |-> Blitter optionns
-        |-> SoftFX algorithm
-          |-> Double pixels(3D hardware)
-        |-> Point filtering
-        |-> Linear filtering
-        |-> HardFX algorithm
+   FinalBurn Neo
+       |-> Video
+         |-> Select Blitter
+           |-> DirectX9 Alt
+         |-> Blitter optionns
+           |-> SoftFX algorithm
+             |-> Double pixels(3D hardware)
+           |-> Point filtering
+           |-> Linear filtering
+           |-> HardFX algorithm
 ```
 
 2. Config Group
@@ -79,15 +79,43 @@ FinalBurn Neo
 
 4. Full screen with bezel
 <pre><code>
-FinalBurn Neo
-    |-> Video
-      |-> Window Size
-        |-> Maximum Size
+   FinalBurn Neo
+       |-> Video
+         |-> Window Size
+           |-> Maximum Size
 
-Right-click the screen to enter the borderless window mode
+   Right-click the screen to enter the borderless window mode
 </code></pre>
 
-5. Effect comparison
+
+### "DirectX 11" Mode ###
+
+1. Config
+
+```html
+   FinalBurn Neo
+       |-> Video
+         |-> Select Blitter
+           |-> DirectX 11
+         |-> Blitter optionns
+           |-> Point filtering
+           |-> Shader
+             |-> load shader
+```
+
+2. Recommended
+
+```html
+   \shaders\DirectX11\crt-ext\
+```
+
+3. Other Directx 11 shader file
+
+```html
+    https://neo-source.com/index.php?msg=40984
+```
+
+6. Effect comparison
 
 Original CRT Standard + linear filtering:
 <img width="1197" height="720" alt="Image" src="https://github.com/user-attachments/assets/cecc2c87-2de0-40f7-9471-0e6f9d157856" />

@@ -1,0 +1,100 @@
+/*
+    This is a very simple, compact and very fast Blur shader based and optimized
+    on the Gaussian Blur shader published at
+    https://www.shadertoy.com/view/Xltfzj
+*/
+
+#define SCREEN_GAMMA 2.2
+
+#pragma parameter DOT_GAMMA "Gamma Emulated" 2.2 1.0 4.0 0.1
+#pragma parameter DIFFUSION "CRT Diffusion [slower]" 0.5 0.0 2.0 0.05
+
+uniform float DOT_GAMMA = 2.2;
+uniform float DIFFUSION = 0.5;
+
+/* The output of the pass two steps back (GLSL "PassPrev2*"). */
+struct prev
+{
+    float2 tex_coord;
+    uniform float2 video_size;
+    uniform float2 texture_size;
+    uniform sampler2D texture;
+};
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+};
+
+struct out_vertex
+{
+    float4 position  : POSITION;
+    float4 color     : COLOR;
+    float2 texCoord  : TEXCOORD0;
+    float2 prevCoord : TEXCOORD1;
+};
+
+out_vertex main_vertex
+(
+    float4 position : POSITION,
+    float4 color    : COLOR,
+    float2 texCoord : TEXCOORD0,
+    uniform float4x4 modelViewProj,
+    prev PASSPREV2
+)
+{
+    out_vertex OUT;
+    OUT.position  = mul(modelViewProj, position);
+    OUT.color     = color;
+    OUT.texCoord  = texCoord;
+    OUT.prevCoord = PASSPREV2.tex_coord;      // = GLSL PassPrev2TexCoord
+    return OUT;
+}
+
+float4 main_fragment
+(
+    in out_vertex VAR,
+    uniform input IN,
+    prev PASSPREV2
+) : COLOR
+{
+    if (DIFFUSION > 0.01)
+    {
+        float2 vTexCoord = VAR.prevCoord;                                    // GLSL: TEX0.xy = PassPrev2TexCoord.xy
+        float2 uv_ratio  = PASSPREV2.video_size / PASSPREV2.texture_size;    // image area of the prev texture
+
+        #define Pi 6.28318530718               // Pi*2
+
+        // GAUSSIAN BLUR SETTINGS
+        float Size = 8.0;                      // BLUR SIZE (Radius)
+        #define Directions 16.0                // BLUR DIRECTIONS (Default 16.0 - More is better but slower)
+        #define Quality 5.0                    // BLUR QUALITY (Default 4.0 - More is better but slower)
+        Size *= 1.0 + pow(length(vTexCoord / uv_ratio - float2(0.5)) / 5.0, 2.0) * 10.0;
+
+        float2 Radius = Size / float2(IN.video_size.x / IN.video_size.y * 240.0, 240.0);
+
+        // Pixel colour
+        #define scale 0.95
+        float2 uv = (vTexCoord / uv_ratio - 0.5) / scale + 0.5;
+        float3 Color = tex2D(PASSPREV2.texture, uv * uv_ratio).rgb;
+
+        // Blur calculations
+        for (float d = -Pi / Directions / 2.0; d < Pi - Pi / Directions / 2.0; d += Pi / Directions)
+        {
+            for (float i = 1.0 / Quality; i < 0.999; i += 1.0 / Quality)
+            {
+                Color += tex2D(PASSPREV2.texture, (uv + float2(cos(d), sin(d)) * Radius * i) * uv_ratio).rgb * pow(1.0 - i, 2.0);
+            }
+        }
+        Color /= (Quality - 1.0) * Directions + 1.0;
+
+        // Output to diffusion-mixer
+        return float4(Color * float3(0.56, 0.71, 1.0), 1.0);
+    }
+    else
+        return float4(0.0, 0.0, 0.0, 0.0);
+}

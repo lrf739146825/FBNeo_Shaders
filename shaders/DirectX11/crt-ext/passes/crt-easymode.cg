@@ -1,0 +1,251 @@
+/*
+    CRT Shader by EasyMode - License: GPL
+    A flat CRT shader ideally for 1080p or higher displays.
+*/
+
+#pragma parameter SHARPNESS_H "Sharpness Horizontal" 0.5 0.0 1.0 0.05
+#pragma parameter SHARPNESS_V "Sharpness Vertical" 1.0 0.0 1.0 0.05
+#pragma parameter MASK_STRENGTH "Mask Strength" 0.3 0.0 1.0 0.01
+#pragma parameter MASK_DOT_WIDTH "Mask Dot Width" 1.0 1.0 100.0 1.0
+#pragma parameter MASK_DOT_HEIGHT "Mask Dot Height" 1.0 1.0 100.0 1.0
+#pragma parameter MASK_STAGGER "Mask Stagger" 0.0 0.0 100.0 1.0
+#pragma parameter MASK_SIZE "Mask Size" 1.0 1.0 100.0 1.0
+#pragma parameter SCANLINE_STRENGTH "Scanline Strength" 1.0 0.0 1.0 0.05
+#pragma parameter SCANLINE_BEAM_WIDTH_MIN "Scanline Beam Width Min." 1.5 0.5 5.0 0.5
+#pragma parameter SCANLINE_BEAM_WIDTH_MAX "Scanline Beam Width Max." 1.5 0.5 5.0 0.5
+#pragma parameter SCANLINE_BRIGHT_MIN "Scanline Brightness Min." 0.35 0.0 1.0 0.05
+#pragma parameter SCANLINE_BRIGHT_MAX "Scanline Brightness Max." 0.65 0.0 1.0 0.05
+#pragma parameter SCANLINE_CUTOFF "Scanline Cutoff" 400.0 1.0 1000.0 1.0
+#pragma parameter GAMMA_INPUT "Gamma Input" 2.0 0.1 5.0 0.1
+#pragma parameter GAMMA_OUTPUT "Gamma Output" 1.8 0.1 5.0 0.1
+#pragma parameter BRIGHT_BOOST "Brightness Boost" 1.2 1.0 2.0 0.01
+#pragma parameter DILATION "Dilation" 1.0 0.0 1.0 1.0
+#pragma parameter RED_GAIN "Red Gain" 1.0 0.1 2.0 0.01
+#pragma parameter GREEN_GAIN "Green Gain" 1.0 0.1 2.0 0.01
+#pragma parameter BLUE_GAIN "Blue Gain" 1.0 0.1 2.0 0.01
+#pragma parameter SATURATION_BOOST "Saturation Boost" 0.0 -1.0 1.0 0.01
+
+uniform float SHARPNESS_H            = 0.5;
+uniform float SHARPNESS_V            = 1.0;
+uniform float MASK_STRENGTH          = 0.3;
+uniform float MASK_DOT_WIDTH         = 1.0;
+uniform float MASK_DOT_HEIGHT        = 1.0;
+uniform float MASK_STAGGER           = 0.0;
+uniform float MASK_SIZE              = 1.0;
+uniform float SCANLINE_STRENGTH      = 1.0;
+uniform float SCANLINE_BEAM_WIDTH_MIN= 1.5;
+uniform float SCANLINE_BEAM_WIDTH_MAX= 1.5;
+uniform float SCANLINE_BRIGHT_MIN    = 0.35;
+uniform float SCANLINE_BRIGHT_MAX    = 0.65;
+uniform float SCANLINE_CUTOFF        = 400.0;
+uniform float GAMMA_INPUT            = 2.0;
+uniform float GAMMA_OUTPUT           = 1.8;
+uniform float BRIGHT_BOOST           = 1.2;
+uniform float DILATION               = 1.0;
+uniform float RED_GAIN               = 1.0;
+uniform float GREEN_GAIN             = 1.0;
+uniform float BLUE_GAIN              = 1.0;
+uniform float SATURATION_BOOST       = 0.0;
+
+#define ENABLE_LANCZOS 1
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+};
+
+struct out_vertex
+{
+    float4 position : POSITION;
+    float4 color    : COLOR;
+    float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex
+(
+    float4 position : POSITION,
+    float4 color    : COLOR,
+    float2 texCoord : TEXCOORD0,
+    uniform float4x4 modelViewProj
+)
+{
+    out_vertex OUT;
+    OUT.position = mul(modelViewProj, position);
+    OUT.color    = color;
+    OUT.texCoord = texCoord;
+    return OUT;
+}
+
+// ---- helpers ----
+
+float FIX_hlsl(float c) { return max(abs(c), 1e-5); }
+#define FIX4(c4) float4(FIX_hlsl((c4).x), FIX_hlsl((c4).y), FIX_hlsl((c4).z), FIX_hlsl((c4).w))
+
+static const float PI_VAL = 3.141592653589;
+
+// Dilation: multiply colour by a factor near white to brighten edges.
+float4 dilate_hlsl(float4 col, float dil)
+{
+    float4 x = lerp(float4(1.0, 1.0, 1.0, 1.0), col, dil);
+    return col * x;
+}
+
+// Half-circle s-curve on distance for sharper interpolation.
+float curve_distance(float x, float sharp)
+{
+    float x_step    = step(0.5, x);
+    float diff      = x - x_step;
+    float sign_half = (0.5 - x >= 0.0) ? 1.0 : -1.0;
+    float curve     = 0.5 - sqrt(max(0.0, 0.25 - diff * diff)) * sign_half;
+    return lerp(x, curve, sharp);
+}
+
+// Sample 4-wide colour row in dx direction.
+void get_color_matrix(float2 co, float2 dx,
+                      out float4 c0, out float4 c1, out float4 c2, out float4 c3,
+                      sampler2D src)
+{
+    c0 = dilate_hlsl(tex2D(src, float2(co.x - dx.x, co.y)),           DILATION);
+    c1 = dilate_hlsl(tex2D(src, float2(co.x,         co.y)),           DILATION);
+    c2 = dilate_hlsl(tex2D(src, float2(co.x + dx.x, co.y)),           DILATION);
+    c3 = dilate_hlsl(tex2D(src, float2(co.x + dx.x + dx.x, co.y)),     DILATION);
+}
+
+float3 filter_lanczos(float4 coeffs, float4 c0, float4 c1, float4 c2, float4 c3)
+{
+    // mat4x4 * vec4 in GLSL is column-wise dot, so we do manual column scaling.
+    float4 col = c0 * coeffs.x + c1 * coeffs.y + c2 * coeffs.z + c3 * coeffs.w;
+    float4 sample_min = min(c1, c2);
+    float4 sample_max = max(c1, c2);
+    col = clamp(col, sample_min, sample_max);
+    return float3(col.x, col.y, col.z);
+}
+
+float3 adjust_saturation(float3 color, float sat)
+{
+    float intensity = color.x * 0.299 + color.y * 0.587 + color.z * 0.114;
+    float3 desaturated = float3(intensity, intensity, intensity);
+    float3 saturated = lerp(desaturated, color, sat);
+    saturated = clamp(saturated, 0.0, 1.0);
+    return saturated;
+}
+
+// ---- fragment ----
+
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+    // RetroArch SourceSize semantics (in pixels)
+    float src_w = IN.video_size.x;
+    float src_h = IN.video_size.y;
+    float tex_w = IN.texture_size.x;
+    float tex_h = IN.texture_size.y;
+    float out_w = IN.output_size.x;
+    float out_h = IN.output_size.y;
+
+    // uv_ratio: FBNeo padded uv spans 0..uv_ratio (not 0..1). Divide by this
+    // to get the image-normalised 0..1 coordinate (== RetroArch vTexCoord).
+    float2 uv_ratio = float2(src_w / tex_w, src_h / tex_h);
+    float2 vTex     = VAR.texCoord / uv_ratio;   // 0..1 across the source image
+
+    // Source texel step in *texture-coordinate* space (same units as VAR.texCoord).
+    // Using the padded texture width/height makes dx exactly one texel on the POT surface.
+    float2 dx = float2(1.0 / tex_w, 0.0);
+    float2 dy = float2(0.0,        1.0 / tex_h);
+
+    // Align to source texel centres (in texture-coordinate space).
+    float2 pix_co  = float2(vTex.x * src_w - 0.5, vTex.y * src_h - 0.5);
+    float2 tex_co  = (float2(floor(pix_co.x) + 0.5, floor(pix_co.y) + 0.5)) *
+                     float2(1.0 / src_w, 1.0 / src_h) * uv_ratio;
+    float2 dist    = float2(pix_co.x - floor(pix_co.x), pix_co.y - floor(pix_co.y));
+
+    float curve_x;
+    float3 col, col2;
+
+#if ENABLE_LANCZOS
+    curve_x = curve_distance(dist.x, SHARPNESS_H * SHARPNESS_H);
+
+    float4 coeffs = float4(PI_VAL * (1.0 + curve_x),
+                           PI_VAL * curve_x,
+                           PI_VAL * (1.0 - curve_x),
+                           PI_VAL * (2.0 - curve_x));
+    coeffs = FIX4(coeffs);
+
+    float s0 = 2.0 * sin(coeffs.x) * sin(coeffs.x * 0.5) / (coeffs.x * coeffs.x);
+    float s1 = 2.0 * sin(coeffs.y) * sin(coeffs.y * 0.5) / (coeffs.y * coeffs.y);
+    float s2 = 2.0 * sin(coeffs.z) * sin(coeffs.z * 0.5) / (coeffs.z * coeffs.z);
+    float s3 = 2.0 * sin(coeffs.w) * sin(coeffs.w * 0.5) / (coeffs.w * coeffs.w);
+    coeffs = float4(s0, s1, s2, s3);
+    float norm = coeffs.x + coeffs.y + coeffs.z + coeffs.w;
+    coeffs = float4(coeffs.x / norm, coeffs.y / norm, coeffs.z / norm, coeffs.w / norm);
+
+    float4 c0, c1, c2, c3;
+    get_color_matrix(tex_co, dx, c0, c1, c2, c3, decal);
+    col  = filter_lanczos(coeffs, c0, c1, c2, c3);
+    get_color_matrix(float2(tex_co.x, tex_co.y + dy.y), dx, c0, c1, c2, c3, decal);
+    col2 = filter_lanczos(coeffs, c0, c1, c2, c3);
+#else
+    curve_x = curve_distance(dist.x, SHARPNESS_H);
+
+    float3 s00 = dilate_hlsl(tex2D(decal, tex_co),                       DILATION).xyz;
+    float3 s10 = dilate_hlsl(tex2D(decal, float2(tex_co.x + dx.x, tex_co.y)), DILATION).xyz;
+    float3 s01 = dilate_hlsl(tex2D(decal, float2(tex_co.x, tex_co.y + dy.y)), DILATION).xyz;
+    float3 s11 = dilate_hlsl(tex2D(decal, float2(tex_co.x + dx.x, tex_co.y + dy.y)), DILATION).xyz;
+    col  = lerp(s00, s10, curve_x);
+    col2 = lerp(s01, s11, curve_x);
+#endif
+
+    col = lerp(col, col2, curve_distance(dist.y, SHARPNESS_V));
+
+    float gamma_in = GAMMA_INPUT / (DILATION + 1.0);
+    col = float3(pow(col.x, gamma_in),
+                 pow(col.y, gamma_in),
+                 pow(col.z, gamma_in));
+
+    float luma   = col.x * 0.2126 + col.y * 0.7152 + col.z * 0.0722;
+    float cm     = max(col.x, max(col.y, col.z));
+    float bright = (cm + luma) * 0.5;
+
+    float scan_bright = clamp(bright, SCANLINE_BRIGHT_MIN, SCANLINE_BRIGHT_MAX);
+    float scan_beam   = clamp(bright * SCANLINE_BEAM_WIDTH_MAX, SCANLINE_BEAM_WIDTH_MIN, SCANLINE_BEAM_WIDTH_MAX);
+    // Scanlines are driven by the image-normalised y (0..1 across source).
+    float angle_cos   = cos(vTex.y * 2.0 * PI_VAL * src_h) * 0.5 + 0.5;
+    float scan_weight = 1.0 - pow(angle_cos, scan_beam) * SCANLINE_STRENGTH;
+
+    float mask_v   = 1.0 - MASK_STRENGTH;
+    // Mask grid is driven by *output* pixel coordinates (matches the RetroArch formula).
+    float modx     = floor(vTex.x * out_w * src_w / (src_w * MASK_SIZE));
+    float mody     = floor(vTex.y * out_h * src_h / (src_h * MASK_DOT_HEIGHT * MASK_SIZE));
+    float stagger  = ((int)mody % 2 == 0) ? 0.0 : MASK_STAGGER;
+    float dot_no_f = (modx + stagger) / MASK_DOT_WIDTH;
+    int   dot_no   = (int)fmod(dot_no_f, 3.0);
+    if (dot_no < 0) dot_no += 3;
+
+    float3 mask_weight;
+    if      (dot_no == 0) mask_weight = float3(1.0,   mask_v, mask_v);
+    else if (dot_no == 1) mask_weight = float3(mask_v, 1.0,   mask_v);
+    else                  mask_weight = float3(mask_v, mask_v, 1.0);
+
+    if (src_h >= SCANLINE_CUTOFF)
+        scan_weight = 1.0;
+
+    float3 col2_final = col;
+    col = float3(col.x * scan_weight, col.y * scan_weight, col.z * scan_weight);
+    col = lerp(col, col2_final, scan_bright);
+    col = float3(col.x * mask_weight.x, col.y * mask_weight.y, col.z * mask_weight.z);
+
+    float gamma_out_inv = 1.0 / GAMMA_OUTPUT;
+    col = float3(pow(col.x, gamma_out_inv),
+                 pow(col.y, gamma_out_inv),
+                 pow(col.z, gamma_out_inv));
+
+    col = float3(col.x * RED_GAIN   * BRIGHT_BOOST,
+                 col.y * GREEN_GAIN * BRIGHT_BOOST,
+                 col.z * BLUE_GAIN  * BRIGHT_BOOST);
+    col = adjust_saturation(col, 1.0 + SATURATION_BOOST);
+
+    return float4(col.x, col.y, col.z, 1.0);
+}

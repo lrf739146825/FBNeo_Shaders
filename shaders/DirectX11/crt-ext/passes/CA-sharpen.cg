@@ -1,0 +1,214 @@
+
+#pragma parameter SHARPEN "S-Video Resharpen" 0.3 0.0 2.0 0.1
+#pragma parameter NTSCintensity "NTSC TV Color intensity" 0.0 0.0 2.0 0.1
+#pragma parameter BLK "Black Level Assumed(%)" 0.0 -17.5 7.5 0.5
+#pragma parameter EXPOSURE "Exposure" 1.0 0.1 2.0 0.01
+#pragma parameter CT "Temperature+ (*1000K)" 0.0 -2.8 2.8 0.1
+#pragma parameter CORNER "Rounded Corners" 0.0 0.0 1.0 0.05
+#pragma parameter CPOY "Corner Position(Y)" 0.0 -50.0 0.0 0.5
+#pragma parameter PPOY "Picture Position(Y)" 0.0 -50.0 50.0 1.0
+
+uniform float SHARPEN       = 0.3;
+uniform float NTSCintensity = 0.0;
+uniform float BLK           = 0.0;
+uniform float EXPOSURE      = 1.0;
+uniform float CT            = 0.0;
+uniform float CORNER        = 0.0;
+uniform float CPOY          = 0.0;
+uniform float PPOY          = 0.0;
+
+#define DisplayCT 6500.0
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+};
+
+struct out_vertex
+{
+    float4 position : POSITION;
+    float4 color    : COLOR;
+    float2 texCoord : TEXCOORD0;
+    float3 vc       : TEXCOORD1;
+};
+
+float3 colorTemperatureToRGB(float c)
+{
+    float3x3 m;
+    if (c > DisplayCT)
+    {
+        m = float3x3(
+             1745.0425298314172,  1216.6168361476490, -8257.7997278925690,
+            -2666.3474220535695, -2173.1012343082230,  2575.2827530017594,
+                0.55995389139931482,   0.70381203140554553,  1.8993753891711275);
+    }
+    else
+    {
+        m = float3x3(
+            0.0,                 -2902.1955373783176, -8257.7997278925690,
+            0.0,                  1669.5803561666639,  2575.2827530017594,
+            1.0,                  1.3302673723350029,  1.8993753891711275);
+    }
+
+    float3 c3 = float3(c, c, c);
+    float3 col = clamp(m[0] / (c3 + m[1]) + m[2], 0.0, 1.0);
+    float mixT = smoothstep(1000.0, 0.0, c);
+    return lerp(col, float3(1.0, 1.0, 1.0), mixT);
+}
+
+out_vertex main_vertex
+(
+    float4 position : POSITION,
+    float4 color    : COLOR,
+    float2 texCoord : TEXCOORD0,
+    uniform float4x4 modelViewProj
+)
+{
+    out_vertex OUT;
+    OUT.position = mul(modelViewProj, position);
+    OUT.color    = color;
+    OUT.texCoord = texCoord;
+
+    float3 vc0 = float3(1.0, 1.0, 1.0);
+    float3 vc1 = colorTemperatureToRGB(DisplayCT + CT * 1000.0);
+    if (abs(CT) > 0.01)
+        OUT.vc = vc1;
+    else
+        OUT.vc = vc0;
+    return OUT;
+}
+
+float3 NTSCtoSRGB(float3 c)
+{
+    float3x3 e = float3x3(
+        0.6068909, 0.1735011, 0.2003480,
+        0.2989164, 0.5865990, 0.1144845,
+        0.0000000, 0.0660957, 1.1162243);
+
+    float3x3 f = float3x3(
+         3.2404542, -1.5371385, -0.4985314,
+        -0.9692660,  1.8760108,  0.0415560,
+         0.0556434, -0.2040259,  1.0572252);
+
+    float3 powIn  = pow(c, float3(2.2, 2.2, 2.2));
+    float3 lin    = clamp(mul(e, powIn), 0.0, 1.0);
+    float3 srgb   = clamp(mul(f, lin), 0.0, 1.0);
+    return pow(srgb, float3(1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2));
+}
+
+float3 YUVtoRGB(float3 n)
+{
+    float y0 = n.x;
+    float u0 = n.y - 0.5;
+    float v0 = n.z - 0.5;
+    float r0 = y0 + 1.402 * v0;
+    float g0 = y0 - 0.344 * u0 - 0.714 * v0;
+    float b0 = y0 + 1.772 * u0;
+    return float3(r0, g0, b0);
+}
+
+float4 main_fragment
+(
+    in out_vertex VAR,
+    uniform sampler2D decal : TEXUNIT0,
+    uniform input IN
+) : COLOR
+{
+    // ---- size / step values, all as plain scalars to keep HLSL happy ----
+    float video_w  = IN.video_size.x;
+    float video_h  = IN.video_size.y;
+    float tex_w    = IN.texture_size.x;
+    float tex_h    = IN.texture_size.y;
+    float out_w    = IN.output_size.x;
+    float out_h    = IN.output_size.y;
+
+    float uv_ratio_x = video_w / tex_w;
+    float uv_ratio_y = video_h / tex_h;
+    float2 uv_ratio  = float2(uv_ratio_x, uv_ratio_y);
+
+    float step_x = 1.0 / video_w;
+    float step_y = 1.0 / video_h;
+
+    // TEXCOORD0 comes in padded; map to 0..1 image-normalised coords.
+    float2 vTexCoord = float2(
+        VAR.texCoord.x / uv_ratio_x,
+        VAR.texCoord.y / uv_ratio_y);
+
+    // ---- s-video resharpen ----
+    float2 t = vTexCoord;
+    t.y = t.y + PPOY * step_y;
+
+    float2 offsL = float2(t.x - step_x, t.y);
+    float2 offsR = float2(t.x + step_x, t.y);
+    float2 tTC   = float2(t.x * uv_ratio_x, t.y * uv_ratio_y);
+    float2 ltTC  = float2(offsL.x * uv_ratio_x, offsL.y * uv_ratio_y);
+    float2 rtTC  = float2(offsR.x * uv_ratio_x, offsR.y * uv_ratio_y);
+
+    float  i0 = tex2D(decal, ltTC).x;
+    float  j0 = tex2D(decal, rtTC).x;
+    float3 k0 = tex2D(decal, tTC).xyz;
+
+    k0.x = k0.x * (SHARPEN * 2.0 + 1.0) - (i0 + j0) * SHARPEN;
+
+    float3 u0 = clamp(YUVtoRGB(k0), 0.0, 1.0);
+
+    if (NTSCintensity > 0.01)
+    {
+        float3 u_ntsc = NTSCtoSRGB(u0);
+        u0 = lerp(u0, u_ntsc, NTSCintensity * 0.5);
+    }
+
+    u0 = (u0 - float3(BLK * 0.01, BLK * 0.01, BLK * 0.01)) * (100.0 / (100.0 - BLK));
+    u0 = clamp(u0 * EXPOSURE, 0.0, 1.0);
+
+    float3 v0 = u0;
+    if (abs(CT) > 0.01)
+    {
+        float lumSrc = dot(u0, float3(0.2126, 0.7152, 0.0722));
+        float3 vTmp  = u0 * VAR.vc;
+        float lumDst = dot(vTmp, float3(0.2126, 0.7152, 0.0722));
+        float lumRcp = 1.0 / max(lumDst, 1e-5);
+        v0 = vTmp * (lumSrc * lumRcp);
+    }
+
+    // ---- Rounded corners (CORNER default 0, skipped when 0) ----
+    if (CORNER > 0.0)
+    {
+        // output aspect ratio (width / height)
+        float aspect = out_w / out_h;
+
+        float2 w = float2(vTexCoord.x - 0.5, vTexCoord.y - 0.5);
+        w.x = w.x * aspect;
+        w.x = abs(w.x);
+        w.y = abs(w.y);
+
+        float cr       = CORNER * 0.1;
+        float zCorner  = 1.0 + CPOY * 0.01;
+        float kk_x     = aspect * 0.5 - cr;
+        float kk_y     = zCorner * 0.5 - cr;
+        float2 kk      = float2(kk_x, kk_y);
+
+        // top / bottom edge fade
+        float aa = (zCorner * 0.5 - w.y) * out_h * 0.5 + 0.5;
+        aa = clamp(aa, 0.0, 1.0);
+        v0 = v0 * aa;
+
+        // corner radius mask
+        float bb = (kk.x <= w.x) ? 1.0 : 0.0;
+        bb *= (kk.y <= w.y) ? 1.0 : 0.0;
+        if (bb > 0.5)
+        {
+            float2 diff = float2(w.x - kk.x, w.y - kk.y);
+            float dist  = sqrt(diff.x * diff.x + diff.y * diff.y);
+            float aa2   = (cr + 0.5 / out_h - dist) * out_h;
+            float cc    = bb * clamp(aa2, 0.0, 1.0) + (1.0 - bb);
+            v0 = v0 * cc;
+        }
+    }
+
+    return float4(v0.x, v0.y, v0.z, 1.0);
+}

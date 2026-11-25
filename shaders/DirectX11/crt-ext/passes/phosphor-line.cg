@@ -1,0 +1,283 @@
+/*
+    Phosphor Line shader v2.0 by Roc-Y.
+    NOV. 2025
+    Copyright (C) 2025 Roc-Y - rocky02009@163.com
+*/
+
+#pragma parameter GAMMA "Gamma Emulated" 2.2 1.0 4.0 0.1
+#pragma parameter LINE_PITCH_COEF "Scanline Pitch" 1.0 0.1 10.0 0.1
+#pragma parameter LINE_THICKNESS "Scanline Thickness" 0.95 0.1 2.0 0.01
+#pragma parameter LINE_OPACITY "Scanline Opacity" 0.95 0.0 0.95 0.05
+#pragma parameter LINEAR "Horizontal Blending" 0.8 0.0 1.0 0.1
+#pragma parameter PIC_SCALE_X "Picture Scale(X)" 1.0 -10.0 10.0 0.01
+#pragma parameter PIC_SCALE_Y "Picture Scale(Y)" 1.0 -10.0 10.0 0.01
+#pragma parameter INT_TOL "Allow Overscan for Clarity" 0.05 0.0 0.1 0.01
+#pragma parameter INT_SCALE "Force Integer Scaling" 0.0 0.0 1.0 0.5
+#pragma parameter CURVE_X "CRT Curvature(X)" 0.0 0.0 1.0 0.01
+#pragma parameter CURVE_Y "CRT Curvature(Y)" 0.0 0.0 1.0 0.01
+
+uniform float GAMMA           = 2.2;
+uniform float LINE_PITCH_COEF = 1.0;
+uniform float LINE_THICKNESS  = 0.95;
+uniform float LINE_OPACITY    = 0.95;
+uniform float LINEAR          = 0.8;
+uniform float PIC_SCALE_X     = 1.0;
+uniform float PIC_SCALE_Y     = 1.0;
+uniform float INT_TOL         = 0.05;
+uniform float INT_SCALE       = 0.0;
+uniform float CURVE_X         = 0.0;
+uniform float CURVE_Y         = 0.0;
+
+/* NOTE: the GLSL source had "#define b 0.7" which collides with swizzles.
+   Inlined as B_CONST below to keep HLSL happy. */
+#define B_CONST 0.7
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+};
+
+struct orig
+{
+    float2 tex_coord;
+    uniform float2 video_size;
+    uniform float2 texture_size;
+    uniform float2 output_size;
+    uniform sampler2D texture;
+};
+
+struct out_vertex
+{
+    float4 position    : POSITION;
+    float4 color       : COLOR;
+    float2 texCoord    : TEXCOORD0;
+    float4 vParameter  : TEXCOORD1;
+    float4 vParameter2 : TEXCOORD2;
+};
+
+out_vertex main_vertex
+(
+    float4 position : POSITION,
+    float4 color    : COLOR,
+    float2 texCoord : TEXCOORD0,
+    uniform float4x4 modelViewProj,
+    uniform input IN,
+    orig ORIG
+)
+{
+    out_vertex OUT;
+    OUT.position = mul(modelViewProj, position);
+    OUT.color    = color;
+    OUT.texCoord = texCoord;
+
+    float pScaleY = IN.output_size.y / ORIG.video_size.y;
+    float q = pScaleY * PIC_SCALE_Y;
+
+    // vertical integer scale factor
+    float isc;
+    if (q <= 4.0)
+        isc = floor(q * (1.0 + INT_TOL));
+    else
+        isc = floor(q);
+    isc = max(isc, 1.0);
+    OUT.vParameter2.x = isc;
+
+    float yFactor = pScaleY / isc;
+    OUT.vParameter.y = yFactor;
+
+    if (INT_SCALE > 0.75)
+        OUT.vParameter.x = yFactor;
+    else
+        OUT.vParameter.x = 1.0 / PIC_SCALE_X;
+
+    // center offset
+    float offX = (1.0 - 1.0 / OUT.vParameter.x) * 0.5;
+    float offY = (1.0 - 1.0 / OUT.vParameter.y) * 0.5;
+    OUT.vParameter.z = offX;
+    OUT.vParameter.w = floor(offY * IN.output_size.y) / IN.output_size.y;
+
+    // scanline pitch (in lines), w flag = vertically scaled beyond 1px
+    float pitch = isc * LINE_PITCH_COEF + 0.5;
+    OUT.vParameter2.z = max(floor(pitch), 3.0);
+    OUT.vParameter2.w = (IN.video_size.y >= ORIG.video_size.y + 1.0) ? 1.0 : 0.0;
+
+    return OUT;
+}
+
+float lum3(float3 col)
+{
+    return col.r * 0.3 + col.g * 0.6 + col.b * 0.1;
+}
+
+/* CRT barrel curve on X only (GLSL returns (n, r.y)). */
+float2 curve_pl(float2 r)
+{
+    if (CURVE_X < 0.005 && CURVE_Y < 0.005)
+        return r;
+
+    float rx = 1.0 / clamp(CURVE_X * 2.0, 0.01, 1.0);
+    float ry = 1.0 / clamp(CURVE_Y, 0.01, 1.0);
+    float s1x = sin(1.0 / rx);
+    float s1y = sin(1.0 / ry);
+
+    float jx = (r.x - 0.50001) * 2.0;
+    float jy = (r.y - 0.50001) * 2.0;
+
+    float tx = jx / rx;
+    float ty = jy / ry;
+    float ux = jx * jx * s1x / sin(tx);
+    float uy = jy * jy * s1y / sin(ty);
+
+    float cy = cos(ty);
+    float l = ry * (1.0 - cy);
+    float m = 1.0 - l * 0.3;
+    ux /= m;
+
+    return float2(ux * 0.5 + 0.50001, r.y);
+}
+
+/* 4-tap bilinear-ish fetch with sharpness control e. */
+float3 fetch_quad(sampler2D src, float2 uv, float4 sz, float2 ratio, float2 e)
+{
+    float fx = uv.x * sz.x - 0.5;
+    float fy = uv.y * sz.y - 0.5;
+
+    float gx = fx - floor(fx);
+    float gy = fy - floor(fy);
+    if (e.x > 0.0001) gx = clamp((gx - 0.5) / e.x + 0.5, 0.0, 1.0);
+    if (e.y > 0.0001) gy = clamp((gy - 0.5) / e.y + 0.5, 0.0, 1.0);
+
+    float tx0 = (floor(fx) + 0.5) * sz.z * ratio.x;
+    float tx1 = tx0 + sz.z * ratio.x;
+    float ty0 = (floor(fy) + 0.5) * sz.w * ratio.y;
+    float ty1 = ty0 + sz.w * ratio.y;
+
+    float3 c00 = tex2D(src, float2(tx0, ty0)).rgb;
+    float3 c10 = tex2D(src, float2(tx1, ty0)).rgb;
+    float3 c01 = tex2D(src, float2(tx0, ty1)).rgb;
+    float3 c11 = tex2D(src, float2(tx1, ty1)).rgb;
+
+    c00 = c00 * c00;
+    c10 = c10 * c10;
+    c01 = c01 * c01;
+    c11 = c11 * c11;
+
+    float3 cx0 = lerp(c00, c10, gx);
+    float3 cx1 = lerp(c01, c11, gx);
+    float3 bl = lerp(cx0, cx1, gy);
+    return sqrt(clamp(bl, 0.0, 1.0));
+}
+
+/* cubic bezier shaping for scanline falloff */
+float3 bez3(float3 t, float d)
+{
+    float3 tt = clamp(t, 0.0, 1.0);
+    float3 u = float3(1.0, 1.0, 1.0) - tt;
+    float3 t2 = tt * tt;
+    float3 u2 = u * u;
+    float3 t3 = t2 * tt;
+    float3 u3 = u2 * u;
+    float midA = 0.25 + d;
+    float3 p = u3 * 0.0
+             + float3(3.0, 3.0, 3.0) * u2 * tt * midA
+             + float3(3.0, 3.0, 3.0) * u * t2 * 0.75
+             + t3 * 1.0;
+    return clamp(p, 0.0, 1.0);
+}
+
+float4 main_fragment
+(
+    in out_vertex VAR,
+    uniform sampler2D decal : TEXUNIT0,
+    uniform input IN,
+    orig ORIG
+) : COLOR
+{
+    float video_w = IN.video_size.x;
+    float video_h = IN.video_size.y;
+    float out_w   = IN.output_size.x;
+    float out_h   = IN.output_size.y;
+    float orig_w  = ORIG.video_size.x;
+    float orig_h  = ORIG.video_size.y;
+
+    float r_x = video_w / IN.texture_size.x;
+    float r_y = video_h / IN.texture_size.y;
+    float u = VAR.texCoord.x / r_x;
+    float v = VAR.texCoord.y / r_y;
+    float2 vTexCoord = float2(u, v);
+
+    float4 srcSz  = float4(video_w, video_h, 1.0/video_w, 1.0/video_h);
+    float4 outSz  = float4(out_w,   out_h,   1.0/out_w,   1.0/out_h);
+    float4 origSz = float4(orig_w,  orig_h,  1.0/orig_w,  1.0/orig_h);
+
+    float4 vPar  = VAR.vParameter;
+    float4 vPar2 = VAR.vParameter2;
+
+    float delta[5];
+    delta[0] = 0.21; delta[1] = 0.15; delta[2] = 0.13; delta[3] = 0.12; delta[4] = 0.1;
+
+    float2 crv = curve_pl(vTexCoord);
+    float rx = crv.x - vPar.z;
+    float ry = crv.y - vPar.w;
+
+    float scanY = floor(ry * outSz.y) + 0.5;
+
+    float finalX = rx * vPar.x;
+    float finalY = ry * vPar.y;
+    float2 finalUV = float2(finalX, finalY);
+
+    float2 eSharp = float2(LINEAR, vPar2.w);
+
+    float2 subU = float2(0.0, 0.0);
+    if (srcSz.x * origSz.z > 1.5)
+    {
+        float2 tL = float2((finalX - origSz.z * 0.45) * r_x, finalY * r_y);
+        float2 tR = float2((finalX + origSz.z * 0.45) * r_x, finalY * r_y);
+        float3 colL = tex2D(decal, tL).rgb;
+        float3 colR = tex2D(decal, tR).rgb;
+        subU.x = (lum3(colL) - lum3(colR)) * 0.25 * origSz.z;
+        subU.x *= LINEAR;
+        eSharp.x = 1.0;
+    }
+
+    float2 fetchUV = float2(finalX - subU.x, finalY - subU.y);
+    float3 yCol = fetch_quad(decal, fetchUV, srcSz, float2(r_x, r_y), eSharp);
+    float3 zCol = yCol;
+    float3 yPow = pow(yCol, float3(GAMMA * 0.5, GAMMA * 0.5, GAMMA * 0.5));
+
+    float3 outCol = yPow;
+
+    if (vPar2.x * LINE_PITCH_COEF > 2.9)
+    {
+        float PITCH = vPar2.z;
+        int di = (int)(min(PITCH, 7.0) - 3.0);
+        if (di < 0) di = 0;
+        if (di > 4) di = 4;
+        float dVal = delta[di];
+
+        float3 zBez = bez3(zCol, dVal);
+        float3 zPow = pow(zBez, float3(GAMMA, GAMMA, GAMMA));
+
+        float3 aa = (zPow * B_CONST + (1.0 - B_CONST)) * PITCH * LINE_THICKNESS;
+
+        float bb = fmod(scanY, PITCH) - PITCH * 0.5;
+        float3 cc;
+        cc.r = abs( bb * 2.0 - 0.5);
+        cc.g = abs(-bb * 2.0 - 0.5);
+        cc.b = abs( bb * 2.0 - 0.5);
+
+        float3 dd = aa - cc + float3(0.5, 0.5, 0.5);
+        dd = clamp(dd, 0.0, 1.0);
+        float3 denom = zPow * B_CONST + float3(1.0 - B_CONST, 1.0 - B_CONST, 1.0 - B_CONST);
+        dd = dd * zPow / denom;
+        dd = sqrt(clamp(dd, 0.0, 1.0));
+
+        outCol = lerp(yPow, dd, LINE_OPACITY);
+    }
+
+    return float4(outCol.x, outCol.y, outCol.z, 1.0);
+}

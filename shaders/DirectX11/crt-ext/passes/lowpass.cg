@@ -1,0 +1,76 @@
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+};
+
+struct out_vertex
+{
+    float4 position : POSITION;
+    float4 color    : COLOR;
+    float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex
+(
+    float4 position : POSITION,
+    float4 color    : COLOR,
+    float2 texCoord : TEXCOORD0,
+    uniform float4x4 modelViewProj
+)
+{
+    out_vertex OUT;
+    OUT.position = mul(modelViewProj, position);
+    OUT.color    = color;
+    OUT.texCoord = texCoord;
+    return OUT;
+}
+
+float4 main_fragment
+(
+    in out_vertex VAR,
+    uniform sampler2D decal : TEXUNIT0,
+    uniform input IN
+) : COLOR
+{
+    float video_w = IN.video_size.x;
+    float video_h = IN.video_size.y;
+    float tex_w   = IN.texture_size.x;
+    float tex_h   = IN.texture_size.y;
+    float out_w   = IN.output_size.x;
+
+    float r_x = video_w / tex_w;
+    float r_y = video_h / tex_h;
+    float u = VAR.texCoord.x / r_x;
+    float v = VAR.texCoord.y / r_y;
+    float outStep = 1.0 / out_w;
+
+    float w[5];
+    w[0] = 0.1043;
+    w[1] = 0.3785;
+    w[2] = 1.0;
+    w[3] = 0.3785;
+    w[4] = 0.1043;
+
+    float4 acc = float4(0.0, 0.0, 0.0, 0.0);
+    float  ws  = 0.0;
+
+    [unroll] for (int i = -2; i <= 2; ++i)
+    {
+        float off = float(i) * outStep;
+        float su  = (u + off) * r_x;
+        float sv  = v * r_y;
+        float wi  = w[i + 2];
+        acc += tex2D(decal, float2(su, sv)) * wi;
+        ws  += wi;
+    }
+
+    if (ws > 0.0)
+        acc = acc / ws;
+
+    return acc;
+}

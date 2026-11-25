@@ -1,0 +1,112 @@
+/*
+   Hyllian's CRT Shader - pass0  (horizontal Catmull-Rom upsampler)
+   Copyright (C) 2011-2016 Hyllian - sergiogdb@gmail.com
+*/
+
+#pragma parameter SHARPNESS "CRT - Sharpness Hack" 1.0 1.0 5.0 1.0
+#pragma parameter CRT_ANTI_RINGING "CRT - Anti-Ringing" 0.8 0.0 1.0 0.1
+#pragma parameter InputGamma "CRT - Input gamma" 2.5 0.0 5.0 0.1
+
+uniform float SHARPNESS        = 1.0;
+uniform float CRT_ANTI_RINGING = 0.8;
+uniform float InputGamma       = 2.5;
+
+#define GAMMA_IN(color) pow(color, float3(InputGamma, InputGamma, InputGamma))
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+};
+
+struct out_vertex
+{
+    float4 position : POSITION;
+    float4 color    : COLOR;
+    float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex
+(
+    float4 position : POSITION,
+    float4 color    : COLOR,
+    float2 texCoord : TEXCOORD0,
+    uniform float4x4 modelViewProj
+)
+{
+    out_vertex OUT;
+    OUT.position = mul(modelViewProj, position);
+    OUT.color    = color;
+    OUT.texCoord = texCoord;
+    return OUT;
+}
+
+// Catmull-Rom (B=0, C=0.5) 4-tap cubic kernel.
+// IMPORTANT: The GLSL `mat4(...)` constructor fills in COLUMN-MAJOR order,
+// while the HLSL `float4x4(...)` constructor fills in ROW-MAJOR order.  The
+// original Hyllian literal is written in visual-row order; after GLSL's
+// column fill the physical matrix becomes W^T, which is what mul(W^T, lobes)
+// needs below.  We therefore transpose the 16 values so that HLSL ends up
+// with the same physical matrix.
+static const float4x4 invX = float4x4(
+    -0.5f,  1.0f, -0.5f,  0.0f,
+     1.5f, -2.5f,  0.0f,  1.0f,
+    -1.5f,  2.0f,  0.5f,  0.0f,
+     0.5f, -0.5f,  0.0f,  0.0f);
+
+float4 main_fragment
+(
+    in out_vertex VAR,
+    uniform sampler2D decal : TEXUNIT0,
+    uniform input IN
+) : COLOR
+{
+    // 0..1 normalised coordinate over the valid image area.
+    float2 uv_ratio = float2(IN.video_size.x / IN.texture_size.x,
+                             IN.video_size.y / IN.texture_size.y);
+    float2 vTex = float2(VAR.texCoord.x / uv_ratio.x,
+                         VAR.texCoord.y / uv_ratio.y);
+
+    float src_w = IN.video_size.x;
+    float src_h = IN.video_size.y;
+
+    // Virtual size for the SHARPNESS hack (only used to compute the kernel
+    // centre and fractional phase -- samples are still one real source-texel
+    // apart because the underlying texture was not actually re-rendered).
+    float2 tex_size_virtual = float2(SHARPNESS * src_w, src_h);
+
+    // Source-texel step, expressed in the 0..1 normalised range of the input.
+    float2 dx = float2(1.0 / src_w, 0.0);
+
+    float2 pix_coord = float2(vTex.x * tex_size_virtual.x - 0.5,
+                              vTex.y * tex_size_virtual.y + 0.0);
+    float2 tc = float2((floor(pix_coord.x) + 0.5)   / tex_size_virtual.x,
+                       (floor(pix_coord.y) + 0.001) / tex_size_virtual.y);
+    float2 fp = frac(pix_coord);
+
+    // Convert back to padded texture space for sampling.
+    float2 tcx  = float2(tc.x  * uv_ratio.x, tc.y * uv_ratio.y);
+    float2 ddx  = float2(dx.x  * uv_ratio.x, 0.0);
+
+    float3 c10 = GAMMA_IN(tex2D(decal, float2(tcx.x - ddx.x,       tcx.y)).rgb);
+    float3 c11 = GAMMA_IN(tex2D(decal, float2(tcx.x,                tcx.y)).rgb);
+    float3 c12 = GAMMA_IN(tex2D(decal, float2(tcx.x + ddx.x,        tcx.y)).rgb);
+    float3 c13 = GAMMA_IN(tex2D(decal, float2(tcx.x + 2.0 * ddx.x,  tcx.y)).rgb);
+
+    float3 min_sample = min(c11, c12);
+    float3 max_sample = max(c11, c12);
+
+    float4 lobes = float4(fp.x * fp.x * fp.x, fp.x * fp.x, fp.x, 1.0);
+    float4 invX_Px = mul(invX, lobes);
+
+    float3 color = c10 * invX_Px.x + c11 * invX_Px.y
+                 + c12 * invX_Px.z + c13 * invX_Px.w;
+
+    // Anti-ringing clamp.
+    float3 aux = color;
+    color = clamp(color, min_sample, max_sample);
+    color = lerp(aux, color, CRT_ANTI_RINGING);
+
+    return float4(color.x, color.y, color.z, 1.0);
+}
