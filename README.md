@@ -8,12 +8,12 @@ Non-even multiples of display scaling can lead to uneven stripes forming on the 
 Base Config
 
 <pre><code>
-   FinalBurn Neo
-       |-> Video
-         |-> Stretch
-           |-> Correct aspect ratio [Recommended Used. The screen display size takes precedence, and the image may be stretched, resulting in inaccurate proportions.]
-           |-> Integer Scaling (Max size) [The screen display ratio takes precedence, and the screen resolution must meet the display requirement of being three times the game's original resolution to achieve the correct visual effect.]
-         |-> Window size (Auto)
+FinalBurn Neo
+    |-> Video
+      |-> Stretch
+        |-> Correct aspect ratio [Recommended Used. The screen display size takes precedence, and the image may be stretched, resulting in inaccurate proportions.]
+        |-> Integer Scaling (Max size) [The screen display ratio takes precedence, and the screen resolution must meet the display requirement of being three times the game's original resolution to achieve the correct visual effect.]
+      |-> Window size (Auto)
 </code></pre>
 
 <hr>
@@ -21,14 +21,14 @@ Base Config
 ### "Experimental" Mode ###
 
 <pre><code>
-   FinalBurn Neo
-       |-> Video
-         |-> Select Blitter
-           |-> Experimental
-         |-> Blitter optionns
-           |-> Enable Linear filtering
-           |-> Enable Scanlines
-           |-> Set scanlines intensity (220)
+FinalBurn Neo
+    |-> Video
+      |-> Select Blitter
+        |-> Experimental
+      |-> Blitter optionns
+        |-> Enable Linear filtering
+        |-> Enable Scanlines
+        |-> Set scanlines intensity (220)
 </code></pre>
 
 <hr>
@@ -36,7 +36,7 @@ Base Config
 ### "DirectX9 Alt" Mode ###
 
 ```html
-   Put shader files into: FBNEO root folder\support\shaders\
+Put shader files into: FBNEO root folder\support\shaders\
 ```
 
 1. Base Config
