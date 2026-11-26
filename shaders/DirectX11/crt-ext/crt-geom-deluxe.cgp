@@ -16,7 +16,7 @@ parameters = "mask_type;aperture_strength;aperture_brightboost;CRTgamma;halation
 
 aperture_strength    = "0.400000"
 aperture_brightboost = "0.400000"
-CRTgamma             = "2.40"
+CRTgamma             = "2.20"
 phosphor_power       = "2.200000"
 width                = "0.500000"
 scanline_weight      = "0.300000"

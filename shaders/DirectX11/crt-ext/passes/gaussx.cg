@@ -12,6 +12,8 @@ uniform float aspect_x = 1.0;
 uniform float aspect_y = 0.75;
 uniform float CRTgamma = 2.4;
 
+// gamma vectors (uniform-derived constants)
+
 struct input
 {
   float2 video_size;
@@ -48,7 +50,7 @@ out_vertex main_vertex
 float3 TEX2D(float2 uv, float2 tex_ratio)
 {
   float3 c = tex2D(decal, float2(uv.x * tex_ratio.x, uv.y * tex_ratio.y)).rgb;
-  return float3(pow(c.r, CRTgamma), pow(c.g, CRTgamma), pow(c.b, CRTgamma));
+  return pow(c, float3(CRTgamma));
 }
 
 float4 main_fragment
@@ -62,15 +64,11 @@ float4 main_fragment
   float2 uv01 = float2(VAR.texCoord.x / tex_ratio.x, VAR.texCoord.y / tex_ratio.y);
 
   // wid: blur radius in source texels, measured along THIS pass's axis (x).
-  // gaussx blurs horizontally, so the radius must follow the horizontal
-  // resolution -- matching gaussy, which blurs vertically and uses the
-  // vertical resolution. Using the wrong axis would make the two passes
-  // produce an anisotropic (elliptical) halation blur on non-4:3 sources.
   float wid = width * IN.video_size.x / (320.0 * aspect_x);
   float k   = 1.0 / wid / wid;
-  float4 coeffs = float4(exp(-1.0 * k), exp(-4.0 * k), exp(-9.0 * k), exp(-16.0 * k));
+  // one vectorised exp() instead of four scalar exp() calls
+  float4 coeffs = exp(float4(-1.0, -4.0, -9.0, -16.0) * k);
 
-  // one source texel, in 0..1 image coordinates
   float onex = 1.0 / IN.video_size.x;
 
   float3 sum = float3(0.0, 0.0, 0.0);
@@ -87,5 +85,5 @@ float4 main_fragment
   float norm = 1.0 / (1.0 + 2.0 * (coeffs.x + coeffs.y + coeffs.z + coeffs.w));
 
   float3 col = sum * norm;
-  return float4(pow(col.r, 1.0 / CRTgamma), pow(col.g, 1.0 / CRTgamma), pow(col.b, 1.0 / CRTgamma), 1.0);
+  return float4(pow(col, vec3(1.0/CRTgamma)), 1.0);
 }
