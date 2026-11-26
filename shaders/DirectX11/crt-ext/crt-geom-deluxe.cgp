@@ -15,7 +15,7 @@ scale_type2    = viewport
 parameters = "mask_type;aperture_strength;aperture_brightboost;CRTgamma;halation;width;curvature;R;d;angle_x;angle_y;cornersize;cornersmooth;overscan_x;overscan_y;monitorgamma;aspect_x;aspect_y;scanline_weight;geom_lum;interlace_detect;phosphor_power;phosphor_amplitude;saturation;NTSCintensity;BLK;EXPOSURE;CT;motion_blur;pixel_glow"
 
 aperture_strength    = "0.400000"
-aperture_brightboost = "0.400000"
+aperture_brightboost = "0.500000"
 CRTgamma             = "2.20"
 phosphor_power       = "2.200000"
 width                = "0.500000"
