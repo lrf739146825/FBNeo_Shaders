@@ -1,0 +1,209 @@
+====================================================================================================
+  CRT-GEOM-DELUXE  PARAMETER MANUAL
+  FinalBurn Neo · Direct3D 11 Blitter · crt-geom-deluxe.cgp
+  30 parameters · 3 render passes · baseline4
+====================================================================================================
+
+[1] Install
+  (1) Extract and keep the folder structure intact:
+        crt-geom-deluxe.cgp
+        passes/crt-geom-deluxe.cg
+        passes/gaussx.cg
+        passes/gaussy.cg
+  (2) Drop the whole folder into FBNeo's shaders directory.
+  (3) Set the video renderer to Direct3D 11 Blitter and load
+      crt-geom-deluxe.cgp.
+  (4) Tune the 30 parameters under Video -> Shader Parameters.
+
+[2] Render Chain
+  pass0 gaussx  ->  pass1 gaussy  ->  pass2 crt-geom-deluxe
+
+  - gaussx + gaussy: separable Gaussian blur, used only as the
+    halation source, never shown directly.
+  - pass2 internal order: curvature/corners/overscan -> Lanczos2
+    resample -> motion blur -> scanline boost -> halation -> mask
+    -> phosphor -> saturation -> NTSC color -> black level
+    -> exposure -> color temperature.
+
+  'Current' is the value actually loaded by this cgp; 'Range/Step'
+  are the hard limits of the parameter panel.
+
+====================================================================================================
+[3] Quick Reference
+====================================================================================================
+
+-- Shadow Mask -------------------------------------------------------------------------------------
+
+  Parameter            | Current | Range         | Step   | Effect
+  --------------------------------------------------------------------------------------------------
+  mask_type            |       1 | 1~24          | 1      | Shadow mask pattern, 24 options (see
+                                                            section 5)
+  aperture_strength    |    0.40 | 0~1           | 0.05   | Mask darkening; larger = more visible
+                                                            gaps
+  aperture_brightboost |    0.50 | 0~1           | 0.05   | Bright-line boost; restores brightness
+                                                            lost to the mask
+
+-- Geometry ----------------------------------------------------------------------------------------
+
+  Parameter            | Current | Range         | Step   | Effect
+  --------------------------------------------------------------------------------------------------
+  curvature            |       1 | 0~1           | 1      | Curvature switch; 1 = spherical bend, 0
+                                                            = flat
+  R                    |     3.5 | 0.5~10        | 0.1    | Radius of curvature; smaller = more
+                                                            bulge
+  d                    |     2.0 | 0.1~10        | 0.1    | Viewing distance; larger = flatter look
+  angle_x              |     0.0 | -1~1          | 0.01   | Horizontal tilt (screen yaw)
+  angle_y              |     0.0 | -1~1          | 0.01   | Vertical tilt (screen pitch)
+  cornersize           |    0.01 | 0~0.10        | 0.01   | Rounded corner radius; 0 = square frame
+  cornersmooth         |    1000 | 100~2000      | 100    | Corner edge smoothness; raise if jagged
+  overscan_x           |     1.0 | 0.8~1.2       | 0.005  | Horizontal overscan zoom; <1 leaves
+                                                            borders
+  overscan_y           |     1.0 | 0.8~1.2       | 0.005  | Vertical overscan zoom; same as above
+  aspect_x             |     1.0 | 0.3~1.0       | 0.01   | Source horizontal aspect (pixel-ratio
+                                                            fix)
+  aspect_y             |    0.75 | 0.3~1.0       | 0.01   | Source vertical aspect; arcade 4:3 uses
+                                                            1.0/0.75
+
+-- Scanline / Grille -------------------------------------------------------------------------------
+
+  Parameter            | Current | Range         | Step   | Effect
+  --------------------------------------------------------------------------------------------------
+  CRTgamma             |    2.20 | 0.7~4.0       | 0.05   | Gamma of the simulated CRT (decode)
+  monitorgamma         |     2.2 | 0.7~4.0       | 0.05   | Output display gamma (encode); equal =
+                                                            neutral tone
+  scanline_weight      |    0.30 | 0.1~0.5       | 0.01   | Scanline thickness and darkness
+  geom_lum             |    0.85 | 0~1           | 0.01   | Scanline luminance lift; ~1 removes dark
+                                                            lines
+  interlace_detect     |     1.0 | 0~1           | 1      | Interlacing simulation switch
+                                                            (interlaced sources)
+  pixel_glow           |    0.30 | 0~1           | 0.05   | Pixel-center glow / edge softening; 0 =
+                                                            sharp
+
+-- Halation ----------------------------------------------------------------------------------------
+
+  Parameter            | Current | Range         | Step   | Effect
+  --------------------------------------------------------------------------------------------------
+  halation             |    0.10 | 0~0.3         | 0.01   | Halation strength; bright areas bleed
+                                                            out, 0 = off
+  width                |    0.50 | 0.1~4.0       | 0.1    | Halation blur radius
+
+-- Phosphor Persistence ----------------------------------------------------------------------------
+
+  Parameter            | Current | Range         | Step   | Effect
+  --------------------------------------------------------------------------------------------------
+  phosphor_amplitude   |    0.02 | 0~0.2         | 0.01   | Phosphor persistence (trail); 0 = off
+  phosphor_power       |    2.20 | 0.5~3.0       | 0.05   | Phosphor decay curve; larger = shorter
+                                                            trail
+
+-- Color -------------------------------------------------------------------------------------------
+
+  Parameter            | Current | Range         | Step   | Effect
+  --------------------------------------------------------------------------------------------------
+  saturation           |    1.00 | 0~2           | 0.05   | Color saturation; 1.0 = unchanged
+  NTSCintensity        |    0.80 | 0~1           | 0.1    | Blend toward NTSC -> sRGB color space
+  BLK                  |    1.00 | -7.5~7.5      | 0.5    | Black level in IRE; positive lifts
+                                                            blacks
+  EXPOSURE             |     1.0 | 0.1~2.0       | 0.05   | Linear output gain (master brightness)
+  CT                   |    1000 | -2800~2800    | 100    | Color temperature offset in K; positive
+                                                            = cooler
+
+-- Time --------------------------------------------------------------------------------------------
+
+  Parameter            | Current | Range         | Step   | Effect
+  --------------------------------------------------------------------------------------------------
+  motion_blur          |     0.0 | 0~1           | 1      | 50/50 blend with previous frame; 1 = on
+
+====================================================================================================
+[4] Tuning Tips
+====================================================================================================
+
+  Goal                         | Action
+  -----------------------------+---------------------------------------------------------
+  Too bright / washed out      | raise monitorgamma to 2.4~2.6; lower halation and
+                               | aperture_brightboost
+  Too dark                     | lower monitorgamma; raise aperture_brightboost; EXPOSURE
+                               | 1.1~1.2
+  Colors look flat             | raise saturation to 1.2~1.4
+  Highlights smear together    | lower halation below 0.05; lower width
+  Scanlines too strong         | lower scanline_weight to 0.22~0.28
+  Scanlines too faint          | raise scanline_weight to 0.35~0.45
+  Dirty image with trails      | set phosphor_amplitude to 0
+  Ghosting on moving objects   | motion_blur = 0; lower phosphor_amplitude
+  Pixel edges too hard         | raise pixel_glow to 0.4~0.5
+  Image too soft               | lower pixel_glow to 0.1~0.2
+  Jagged rounded corners       | raise cornersmooth to 1600~2000
+  Want a flat screen           | curvature = 0; cornersize = 0
+  Mask invisible (high res)    | use a larger mask_type number (see section 5)
+  Mask too coarse              | use a smaller mask_type number; lower aperture_strength
+
+  Ready-made presets
+  - Clean & sharp      aperture_strength 0.3, aperture_brightboost 0.5,
+                       halation 0.05, scanline_weight 0.25, motion_blur 0
+  - Warm home TV       keep this cgp as-is
+  - Flat-panel look    curvature 0, cornersize 0, monitorgamma 2.2
+  - Retro NTSC tape    NTSCintensity 0.8, BLK 1.0, CT 1000, saturation 1.05
+  - No persistence     phosphor_amplitude 0
+
+====================================================================================================
+[5] mask_type Pattern Table (1~24)
+====================================================================================================
+
+  #   Pattern                             #   Pattern
+  ------------------------------------------------------------------------------
+  1   Aperture grille RGB (default)       13  delta 2x4x2 RGB
+  2   2x2 shadow mask RGB                 14  Slot mask RGB (large holes)
+  3   Slot mask RGB                       15  slot 2x4x4 RGB
+  4   Aperture grille RBG                 16  Slot mask RBG
+  5   2x2 shadow mask RBG                 17  slot 2x5x4 BGR
+  6   Aperture grille 1/4 RGB (sparse)    18  slot 2x5x4 RGB
+  7   Aperture grille 2/5 BGR             19  Aperture grille 2/5 BGR variant
+  8   Aperture grille 3/6 RGB (dense)     20  Vertical stripe mask
+  9   Aperture grille 2/4 RGB             21  HDR slot mask
+  10  Aperture grille 3/6 RGB low TVL     22  Monochrome aperture grille
+  11  delta 1x4 RGB                       23  Monochrome aperture grille 4K
+  12  delta 2x4x1 RGB                     24  Shadow mask (6x10, coarsest)
+
+  Rule: larger numbers generally mean coarser, sparser cells; the RBG
+        suffix swaps B and R. Index 0 disables the mask and is outside
+        the slider range (minimum is 1).
+
+====================================================================================================
+[6] 10 Overrides vs. Shader Source Defaults
+====================================================================================================
+
+  Parameter                |     Source | This preset
+  -------------------------+------------+-------------
+  aperture_brightboost     |       0.40 | 0.50
+  CRTgamma                 |       2.40 | 2.20
+  width                    |       2.00 | 0.50
+  geom_lum                 |       0.00 | 0.85
+  phosphor_power           |       1.20 | 2.20
+  phosphor_amplitude       |       0.04 | 0.02
+  NTSCintensity            |       0.00 | 0.80
+  BLK                      |       0.00 | 1.00
+  CT                       |       0.00 | 1000
+  pixel_glow               |       0.50 | 0.30
+
+  The other 20 match the source defaults: mask_type 1, aperture_strength 0.4,
+  curvature 1, R 3.5, d 2.0, angle_x/y 0, cornersize 0.01, cornersmooth 1000,
+  overscan_x/y 1.0, monitorgamma 2.2, aspect_x 1.0, aspect_y 0.75,
+  scanline_weight 0.3, interlace_detect 1.0, halation 0.1, saturation 1.0,
+  EXPOSURE 1.0, motion_blur 0.
+
+====================================================================================================
+[7] Notes
+====================================================================================================
+
+  - The mask tiles against OUTPUT pixels, independent of zoom: patterns
+    1~10 are clear at 1080p; use 14+ at 2160p.
+  - R and d only take effect when curvature = 1.
+  - phosphor_amplitude and motion_blur read past frames; FBNeo keeps about
+    7 frames automatically.
+  - Integer-step parameters (mask_type, curvature, interlace_detect,
+    motion_blur) now round to the nearest step, so float error can no
+    longer make a parameter look adjustable yet do nothing.
+  - Curvature/corners affect only the screen edges, not the center.
+
+====================================================================================================
+  END
+====================================================================================================
