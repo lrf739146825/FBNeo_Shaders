@@ -626,12 +626,12 @@ float4 main_fragment
   const vec2 v_cosangle = vec2(cos(v_ang.x), cos(v_ang.y));
   const vec3 v_stretch  = maxscale(v_sinangle, v_cosangle);
   // interlace detect: only for true interlaced sources (>=400 lines)
-  vec2 ilfac = vec2(1.0, clamp(floor(IN.video_size.y/(interlace_detect == 1.0 ? 400.0 : 1000.0)), 1.0, 2.0));
+  vec2 ilfac = vec2(1.0, clamp(floor(IN.video_size.y/(int(interlace_detect + 0.5) == 1 ? 400.0 : 1000.0)), 1.0, 2.0));
   vec2 v_one = vec2(ilfac.x/TextureSize.x, ilfac.y/TextureSize.y);
 
   // texel coordinates of the active pixel
   vec2 xy;
-  if (curvature > 0.5)
+  if (int(curvature + 0.5) == 1)
     xy = transform(v_texCoord, v_stretch, v_sinangle, v_cosangle);
   else
     xy = vec2((v_texCoord.x-0.5)/overscan_x+0.5, (v_texCoord.y-0.5)/overscan_y+0.5);
@@ -692,7 +692,7 @@ float4 main_fragment
 
   // motion blur: 50/50 blend with the previous raw frame (PREV1).
   // Time-blend only needs single-tap per beam row; no Lanczos needed.
-  if (motion_blur > 0.5) {
+  if (int(motion_blur + 0.5) == 1) {
     vec3 colp  = TEX2D_sampler(xy,                       tex_ratio, PREV1).rgb;
     vec3 colp2 = TEX2D_sampler(vec2(xy.x, y_p1),         tex_ratio, PREV1).rgb;
     col.rgb  = (col.rgb  + colp ) * 0.5;
@@ -725,7 +725,7 @@ float4 main_fragment
   // shadow mask tiled on the output pixel grid (physical screen pixels, no scaling)
   float alpha;
   vec2 mask_coord = v_texCoord * IN.output_size;
-  vec4 mask = vec4(mask_weights_alpha(mask_coord, 1., int(mask_type), alpha), 1.0);
+  vec4 mask = vec4(mask_weights_alpha(mask_coord, 1., int(mask_type + 0.5), alpha), 1.0);
   mask.a = alpha;
 
   // mask darkening from native texel size
@@ -811,7 +811,7 @@ float4 main_fragment
   cout = clamp((cout - vec3(blk_v)) * blk_exp, ZERO3, ONE3);
 
   // 4. colour temperature (Rec.709 luminance preserving)
-  if (CT != 0.0)
+  if (abs(CT) > 0.5)
   {
       vec3 wp = colourTempToRGB(6500.0 + CT);
       vec3 col_ct = cout * wp;
